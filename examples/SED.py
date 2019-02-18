@@ -60,7 +60,9 @@ plt.plot(np.log10(o.lam), np.log10(o.intrinsic_total.lnu), label = 'intrinsic to
 plt.plot(np.log10(o.lam), np.log10(o.total.lnu), label = 'total', lw=1, zorder = 1)
 plt.plot(np.log10(o.lam), np.log10(o.stellar.lnu), label = 'stellar', lw=1, zorder = 1)
 
-for f in filters: plt.scatter(np.log10(F[f].pivwv()), np.log10(o.total.Lnu[f]), edgecolor = 'k', zorder = 2, label = f)
+for f in filters: 
+    print(f, o.total.Lnu[f])
+    plt.scatter(np.log10(F[f].pivwv()), np.log10(o.total.Lnu[f]), edgecolor = 'k', zorder = 2, label = f)
 
 plt.xlim([2., 4.3])
 plt.ylim([np.max(np.log10(o.total.lnu))-5., np.max(np.log10(o.total.lnu))+0.3])
