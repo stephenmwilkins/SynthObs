@@ -2,3 +2,4 @@ astropy
 numpy
 matplotlib
 -e git://github.com/stephenmwilkins/FLARE.git#egg=FLARE
+webbpsf
