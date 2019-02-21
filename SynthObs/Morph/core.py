@@ -2,10 +2,6 @@ from scipy.spatial import cKDTree
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.convolution import convolve, Gaussian2DKernel
-from astropy.cosmology import WMAP9 as cosmos
-import os
-os.environ['WEBBPSF_PATH'] = '/Users/willroper/anaconda3/envs/webbpsf-env/share/webbpsf-data/'
-os.environ['PYSYN_CDBS'] = '/Users/willroper/anaconda3/envs/webbpsf-env/share/pysynphot-data/cdbs/'
 import webbpsf
 
 class physical_image():
@@ -395,26 +391,3 @@ class observed_image():
         convolved_img = convolve(self.img[f], self.PSF_dict.PSFs[f])
 
         return convolved_img
-
-# Define the variables needed to create comparison images
-redshift = 8  # redshift
-arc_res = 0.031
-width = 6.  # img width in arcsec
-# fs = ['JWST.NIRCam.F150W', 'JWST.NIRCam.F200W']
-fs = ['JWST.NIRCam.F150W']
-
-psfs = webbPSFs(fs, width, arc_res, gaussFWHM=4)
-
-# Extract the x and y positions of stars in kpc/h
-X = np.load('/Users/willroper/Documents/University/JWST/webster/data/086/234/3/X.npy')
-Y = np.load('/Users/willroper/Documents/University/JWST/webster/data/086/234/3/Y.npy')
-
-Ls = np.zeros((X.size, len(fs)))
-for ind, f in enumerate(fs):
-    # Extract the luminosity for the desired filter
-    L = np.load('/Users/willroper/Documents/University/JWST/webster/data/086/234/3/'
-                'ObservedLuminosities/BPASSv2.1.binary_ModSalpeter_300/' + f + '_default.npy')
-    Ls[:, ind] = L
-
-img = observed_image(X, Y, Ls, fs, cosmos, redshift=redshift, width=width, resolution=arc_res, resampling_factor=1,
-                     smoothed=True, PSFs=psfs, show=True)
