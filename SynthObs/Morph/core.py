@@ -1,7 +1,7 @@
 from scipy.spatial import cKDTree
 import numpy as np
 import matplotlib.pyplot as plt
-from astropy.convolution import convolve
+from astropy.convolution import convolve, Gaussian2DKernel
 from astropy.cosmology import WMAP9 as cosmos
 import os
 os.environ['WEBBPSF_PATH'] = '/Users/willroper/anaconda3/envs/webbpsf-env/share/webbpsf-data/'
@@ -71,42 +71,81 @@ class webbPSFs():
     Telescope using WebbPSF (STScI: https://webbpsf.readthedocs.io/en/stable/index.html).
     """
 
-    def __init__(self, filters, Ndim, resampling_factor=1):
+    def __init__(self, filters, width, resolution, resampling_factor=1, gaussFWHM=None):
         """
 
         :param filters: A string (or list of strings) of the form JWST.NIRCam.XXXXX, where X is the desired filter name.
-        :param Ndim: The number of pixels along a single dimension of the image. (int)
+        :param width: Width of the image along a single axis (this is approximate since images must be odd in dimension)
+        :param resolution: The detector angular resolution in arcsecond per pixel (short wavelength channel= 0.031,
+        long wavelength channel= 0.063)
         :param resampling_factor: The integer amount of resampling done to increase resolution. (int)
+        :param gaussFWHM: If a simple gaussian PSF is required the FWHM of that PSF in arcseconds. (float)
         """
 
         # Define Attribute
         self.filters = filters  # filter list
         self.PSFs = {}  # PSF dicitonary. {filter name: PSF array}
 
-        # Check if filters is a list or string
-        # If filters is a list create a PSF for each filter
-        if isinstance(filters, list):
+        # Ndim must odd for convolution with the PSF
+        ini_Ndim = int(width / resolution)
+        if ini_Ndim % 2 != 0:
+            self.Ndim = int(width / resolution)
+        else:
+            self.Ndim = int(width / resolution) + 1
 
-            for fstring in self.filters:
+        # If no gaussian FWHM is passed use Web PSFs
+        if gaussFWHM is None:
 
-                f = fstring.split('.')[-1]
+            # Check if filters is a list or string
+            # If filters is a list create a PSF for each filter
+            if isinstance(filters, list):
+
+                for fstring in self.filters:
+
+                    f = fstring.split('.')[-1]
+                    # Compute the PSF
+                    nc = webbpsf.NIRCam()  # Assign NIRCam object to variable.
+                    nc.filter = f  # Set filter.
+                    self.PSFs[fstring] = nc.calc_psf(oversample=resampling_factor, fov_pixels=self.Ndim)[0].data  # compute PSF
+
+            # If it is a string create a single PSF for that string
+            elif isinstance(filters, str):
+
                 # Compute the PSF
                 nc = webbpsf.NIRCam()  # Assign NIRCam object to variable.
-                nc.filter = f  # Set filter.
-                self.PSFs[fstring] = nc.calc_psf(oversample=resampling_factor, fov_pixels=Ndim)[0].data  # compute PSF
+                nc.filter = self.filters.split('.')[-1]  # Set filter.
+                self.PSFs[self.filters] = nc.calc_psf(oversample=resampling_factor, fov_pixels=self.Ndim)[0].data  # compute PSF
 
-        # If it is a string create a single PSF for that string
-        elif isinstance(filters, str):
+            # If neither of the previous conditions are satisfied then filters is not an acceptable format
+            else:
+                print('WARNING: Incompatible format for filters, '
+                      'should be list: [JWST.NIRCam.XXXXX] or string: "JWST.NIRCam.XXXXX" ')
 
-            # Compute the PSF
-            nc = webbpsf.NIRCam()  # Assign NIRCam object to variable.
-            nc.filter = self.filters.split('.')[-1]  # Set filter.
-            self.PSFs[self.filters] = nc.calc_psf(oversample=resampling_factor, fov_pixels=Ndim)[0].data  # compute PSF
-
-        # If neither of the previous conditions are satisfied then filters is not an acceptable format
+        # Else create a gaussian PSF
         else:
-            print('WARNING: Incompatible format for filters, '
-                  'should be list: [JWST.NIRCam.XXXXX] or string: "JWST.NIRCam.XXXXX" ')
+
+            # Check if filters is a list or string
+            # If filters is a list create a PSF for each filter
+            if isinstance(filters, list):
+
+                for fstring in self.filters:
+
+                    f = fstring.split('.')[-1]
+                    self.PSFs[fstring] = Gaussian2DKernel(gaussFWHM/2.355)
+
+            # If it is a string create a single PSF for that string
+            elif isinstance(filters, str):
+
+                # Compute the PSF
+                nc = webbpsf.NIRCam()  # Assign NIRCam object to variable.
+                nc.filter = self.filters.split('.')[-1]  # Set filter.
+                self.PSFs[self.filters] = Gaussian2DKernel(gaussFWHM/2.355)
+
+            # If neither of the previous conditions are satisfied then filters is not an acceptable format
+            else:
+                print('WARNING: Incompatible format for filters, '
+                      'should be list: [JWST.NIRCam.XXXXX] or string: "JWST.NIRCam.XXXXX" ')
+
 
 
 class observed_image():
@@ -114,7 +153,7 @@ class observed_image():
     initial image and if desired applying a PSF for the defined filter.
     """
 
-    def __init__(self, X, Y, fluxes, filters, cosmo, redshift=8, Ndim=151, resolution=0.031, resampling_factor=1,
+    def __init__(self, X, Y, fluxes, filters, cosmo, redshift=8, width=10., resolution=0.031, resampling_factor=1,
                  smoothed=True, PSFs=None, show=False):
         """
 
@@ -124,7 +163,7 @@ class observed_image():
         :param filters: A string (or list of strings) of the form JWST.NIRCam.XXXXX, where X is the desired filter name.
         :param cosmo: A astropy.cosmology object.
         :param redshift: The redshift (z).
-        :param Ndim: The number of pixels along a single dimension of the image. (int)
+        :param width: Width of the image along a single axis (this is approximate since images must be odd in dimension)
         :param resolution: The detector angular resolution in arcsecond per pixel (short wavelength channel= 0.031,
         long wavelength channel= 0.063)
         :param resampling_factor: The integer amount of resampling done to increase resolution. (int)
@@ -141,16 +180,27 @@ class observed_image():
         # Compute angular star particle positions in arcseconds
         self.X_arcsec = self.X * cosmo.arcsec_per_kpc_proper(redshift).value
         self.Y_arcsec = self.Y * cosmo.arcsec_per_kpc_proper(redshift).value
-        
+
+        self.cosmo = cosmo
         self.resampling_factor = resampling_factor
         self.base_pixel_scale = resolution  # pre-resample resolution
         self.pixel_scale = self.base_pixel_scale / self.resampling_factor  # the final image pixel scale
         self.smoothed = smoothed
-        self.Ndim = Ndim
+
+        # Ndim must odd for convolution with the PSF
+        ini_Ndim = int(width / self.pixel_scale)
+        if ini_Ndim % 2 != 0:
+            self.Ndim = int(width / self.pixel_scale)
+        else:
+            self.Ndim = int(width / self.pixel_scale) + 1
+
         self.width = self.Ndim * self.pixel_scale  # width along each axis image in arcseconds
         self.fluxes = fluxes
         self.PSF_dict = PSFs  # PSF dictionary {filter name: PSF array}
         self.img = {}  # initialise the dictionary for created images
+
+        # Make sure Ndim agrees with the PSF object that has been passed
+        assert self.Ndim == self.PSF_dict.Ndim, 'PSF object must have the same dimensions as image object'
 
         # Make sure fluxes is compatible with the number of provided filters
         if isinstance(filters, list):
@@ -201,9 +251,9 @@ class observed_image():
         if isinstance(PSFs, webbPSFs):
 
             print('Applying PSF...')
-
+            print(self.Ndim)
             # astropy.convolve requires images have odd dimensions
-            assert Ndim % 2 != 0, 'Image must have odd dimensions (Ndim must be odd)'
+            assert self.Ndim % 2 != 0, 'Image must have odd dimensions (Ndim must be odd)'
 
             # Initialise the dictionary to store the images with the PSF
             self.psf_img = {}
@@ -313,11 +363,14 @@ class observed_image():
         # Query tree for all particle separations
         nndists, nninds = tree.query(np.column_stack([self.X_arcsec, self.Y_arcsec]), k=7, n_jobs=-1)
 
+        # Define the miniimum smoothing for 0.1kpc in arcseconds
+        min_smooth = 0.1 * self.cosmo.arcsec_per_kpc_proper(redshift).value
+
         # Loop over each star computing the smoothed gaussian distribution for this particle
         for x, y, l, nndist in zip(self.X_arcsec, self.Y_arcsec, F, nndists):
 
             # If the 7th nn distance is less than 0.1 use 0.1
-            r = max([nndist[-1], 0.1])
+            r = max([nndist[-1], min_smooth])
 
             # Compute the image
             g = np.exp(-(((Gx - x) ** 2 + (Gy - y) ** 2) / (2.0 * r ** 2)))
@@ -344,14 +397,13 @@ class observed_image():
         return convolved_img
 
 # Define the variables needed to create comparison images
-redshift = 8.  # redshift
-Ndim = 151
+redshift = 8  # redshift
 arc_res = 0.031
-width = Ndim * arc_res  # img width in arcsec
+width = 6.  # img width in arcsec
 # fs = ['JWST.NIRCam.F150W', 'JWST.NIRCam.F200W']
 fs = ['JWST.NIRCam.F150W']
 
-psfs = webbPSFs(fs, Ndim)
+psfs = webbPSFs(fs, width, arc_res, gaussFWHM=4)
 
 # Extract the x and y positions of stars in kpc/h
 X = np.load('/Users/willroper/Documents/University/JWST/webster/data/086/234/3/X.npy')
@@ -364,5 +416,5 @@ for ind, f in enumerate(fs):
                 'ObservedLuminosities/BPASSv2.1.binary_ModSalpeter_300/' + f + '_default.npy')
     Ls[:, ind] = L
 
-img = observed_image(X, Y, Ls, fs, cosmos, redshift=redshift, Ndim=Ndim, resolution=arc_res, resampling_factor=1,
+img = observed_image(X, Y, Ls, fs, cosmos, redshift=redshift, width=width, resolution=arc_res, resampling_factor=1,
                      smoothed=True, PSFs=psfs, show=True)
