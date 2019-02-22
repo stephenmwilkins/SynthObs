@@ -1,10 +1,16 @@
 
 import numpy as np
 
+import os
+
+import FLARE
+
+FLARE_dir = FLARE.FLARE_dir
+
 
 class test_data():
 
-    def __init__(self, path_to_example_data = '/Users/stephenwilkins/Dropbox/Research/Data/package_example_data/SynthObs/'):
+    def __init__(self, path_to_example_data = FLARE_dir + 'data/package_example_data/SynthObs/'):
     
         self.X = np.load(path_to_example_data+'/X.npy')
         self.Y = np.load(path_to_example_data+'/Y.npy')

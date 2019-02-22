@@ -135,8 +135,11 @@ class observed_image():
         self.Y = Y - np.median(Y)
 
         # Compute angular star particle positions in arcseconds
-        self.X_arcsec = self.X * cosmo.arcsec_per_kpc_proper(redshift).value
-        self.Y_arcsec = self.Y * cosmo.arcsec_per_kpc_proper(redshift).value
+        
+        self.arcsec_per_proper_kpc = cosmo.arcsec_per_kpc_proper(redshift).value
+        
+        self.X_arcsec = self.X * self.arcsec_per_proper_kpc
+        self.Y_arcsec = self.Y * self.arcsec_per_proper_kpc
         
         self.resampling_factor = resampling_factor
         self.base_pixel_scale = resolution  # pre-resample resolution
@@ -313,7 +316,7 @@ class observed_image():
         for x, y, l, nndist in zip(self.X_arcsec, self.Y_arcsec, F, nndists):
 
             # If the 7th nn distance is less than 0.1 use 0.1
-            r = max([nndist[-1], 0.1])
+            r = max([nndist[-1], 0.1*self.arcsec_per_proper_kpc])
 
             # Compute the image
             g = np.exp(-(((Gx - x) ** 2 + (Gy - y) ** 2) / (2.0 * r ** 2)))
