@@ -70,13 +70,13 @@ class webbPSFs():
 
     def __init__(self, nircfilter, width, resolution, resampling_factor=1):
         """
-
         :param nircfilter: Either a string of the form JWST.NIRCam.XXXXX, where XXXXX is the desired filter code
         or the FWHM of the gaussian PSF (float).
         :param width: Width of the image along a single axis (this is approximate since images must be odd in dimension)
         :param resolution: The detector angular resolution in arcsecond per pixel (short wavelength channel= 0.031,
         long wavelength channel= 0.063)
         :param resampling_factor: The integer amount of resampling done to increase resolution. (int)
+        :param gaussFWHM: If a simple gaussian PSF is required the FWHM of that PSF in arcseconds. (float)
         """
 
         # Define Attribute
@@ -97,10 +97,60 @@ class webbPSFs():
             nc.filter = self.nircfilter.split('.')[-1]  # Set filter.
             self.PSF = nc.calc_psf(oversample=resampling_factor, fov_pixels=self.Ndim)[0].data  # compute PSF
 
+        # If no gaussian FWHM is passed use Web PSFs
+        if gaussFWHM is None:
+
+            # Check if filters is a list or string
+            # If filters is a list create a PSF for each filter
+            if isinstance(filters, list):
+
+                for fstring in self.filters:
+
+                    f = fstring.split('.')[-1]
+                    # Compute the PSF
+                    nc = webbpsf.NIRCam()  # Assign NIRCam object to variable.
+                    nc.filter = f  # Set filter.
+                    self.PSFs[fstring] = nc.calc_psf(oversample=resampling_factor, fov_pixels=self.Ndim)[0].data  # compute PSF
+
+            # If it is a string create a single PSF for that string
+            elif isinstance(filters, str):
+
+                # Compute the PSF
+                nc = webbpsf.NIRCam()  # Assign NIRCam object to variable.
+                nc.filter = self.filters.split('.')[-1]  # Set filter.
+                self.PSFs[self.filters] = nc.calc_psf(oversample=resampling_factor, fov_pixels=self.Ndim)[0].data  # compute PSF
+
+            # If neither of the previous conditions are satisfied then filters is not an acceptable format
+            else:
+                print('WARNING: Incompatible format for filters, '
+                      'should be list: [JWST.NIRCam.XXXXX] or string: "JWST.NIRCam.XXXXX" ')
+
+
         # Else create a gaussian PSF
         else:
-
             self.PSF = Gaussian2DKernel(nircfilter/2.355)
+            # Check if filters is a list or string
+            # If filters is a list create a PSF for each filter
+            if isinstance(filters, list):
+
+                for fstring in self.filters:
+
+                    f = fstring.split('.')[-1]
+                    self.PSFs[fstring] = Gaussian2DKernel(gaussFWHM/2.355)
+
+            # If it is a string create a single PSF for that string
+            elif isinstance(filters, str):
+
+                # Compute the PSF
+                nc = webbpsf.NIRCam()  # Assign NIRCam object to variable.
+                nc.filter = self.filters.split('.')[-1]  # Set filter.
+                self.PSFs[self.filters] = Gaussian2DKernel(gaussFWHM/2.355)
+
+            # If neither of the previous conditions are satisfied then filters is not an acceptable format
+            else:
+                print('WARNING: Incompatible format for filters, '
+                      'should be list: [JWST.NIRCam.XXXXX] or string: "JWST.NIRCam.XXXXX" ')
+
 
 
 
@@ -108,11 +158,10 @@ class observed_image():
     """ A class for computing synthetic Webb observations. Optionally applying gaussian smoothing (7th neighbour) to the
     initial image and if desired applying a PSF for the defined filter.
     """
-
+    
     def __init__(self, X, Y, flux, nircfilter, cosmo, redshift=8, width=10., resolution=0.031, resampling_factor=1,
                  smoothed=True, PSF_obj=None, show=False):
         """
-
         :param X: Star Particle X position in kpc. [nStar]
         :param Y: Star Particle Y position in kpc. [nStar]
         :param flux: An array of flux for each star particle for each filter in nJy. [nStar, nnircfilter]
@@ -135,10 +184,14 @@ class observed_image():
         self.Y = Y - np.median(Y)
 
         # Compute angular star particle positions in arcseconds
-        self.X_arcsec = self.X * cosmo.arcsec_per_kpc_proper(redshift).value
-        self.Y_arcsec = self.Y * cosmo.arcsec_per_kpc_proper(redshift).value
-
+        
+        self.arcsec_per_proper_kpc = cosmo.arcsec_per_kpc_proper(redshift).value
+        
+        self.X_arcsec = self.X * self.arcsec_per_proper_kpc
+        self.Y_arcsec = self.Y * self.arcsec_per_proper_kpc
+        
         self.cosmo = cosmo
+
         self.resampling_factor = resampling_factor
         self.base_pixel_scale = resolution  # pre-resample resolution
         self.pixel_scale = self.base_pixel_scale / self.resampling_factor  # the final image pixel scale
@@ -155,8 +208,16 @@ class observed_image():
         self.flux = flux
         self.PSF = PSF_obj  # PSF object
 
-        # Make sure Ndim agrees with the PSF object that has been passed
         assert self.Ndim == self.PSF.Ndim, 'PSF object must have the same dimensions as image object'
+
+        assert self.Ndim == self.PSF_dict.Ndim, 'PSF object must have the same dimensions as image object'
+
+        # Make sure fluxes is compatible with the number of provided filters
+        if isinstance(filters, list):
+            try:
+                assert fluxes.shape[1] == len(filters), 'Fluxes must be provided for each filter'
+            except IndexError:
+                print('Fluxes must be provided for each filter')
 
         # Get the range of x and y star particle positions
         pos_range = [np.max(X) - np.min(X), np.max(Y) - np.min(Y)]
@@ -181,10 +242,10 @@ class observed_image():
         if isinstance(self.PSF, webbPSFs):
 
             print('Applying PSF...')
-
+            print(self.Ndim)
             # astropy.convolve requires images have odd dimensions
             assert self.Ndim % 2 != 0, 'Image must have odd dimensions (Ndim must be odd)'
-
+            
             self.psf_img = self.psfimg()
 
         # If image output is required create and draw a quick plot for each image
@@ -330,6 +391,7 @@ class observed_image():
         for x, y, l, nndist in zip(self.X_arcsec, self.Y_arcsec, F, nndists):
 
             # If the 7th nn distance is less than 0.1 use 0.1
+           
             r = max([nndist[-1], min_smooth])
 
             # Compute the image

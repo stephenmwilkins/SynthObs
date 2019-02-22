@@ -3,14 +3,17 @@
 import numpy as np
 import pickle
 
+
+from ..core import * 
+
 from FLARE.SED import core
+from FLARE.SED import IGM
 
 # from scipy import ndimage # -- used for interpolation
 
-
 class define_model():
 
-    def __init__(self, grid, path_to_SPS_grid = '', dust = False):
+    def __init__(self, grid, path_to_SPS_grid = FLARE_dir + 'Data/SPS/nebular/1.0/Z/', dust = False):
     
         self.grid = pickle.load(open(path_to_SPS_grid + grid + '/nebular.p','rb'), encoding='latin1')
 
@@ -19,30 +22,44 @@ class define_model():
         self.dust = dust
         
 
-    def create_L(self, F):
+    def create_Lnu_grid(self, F):
     
-        self.L = {}
+        self.Lnu = {}
     
-        for f in F.keys():
+        for f in F['filters']:
             
-            self.L[f] = np.trapz(np.multiply(self.grid['stellar'] + self.grid['nebular'], F[f].T), x = F[f].lam, axis = 2)/np.trapz(F[f].T, x = F[f].lam)
+            self.Lnu[f] = np.trapz(np.multiply(self.grid['stellar'] + self.grid['nebular'], F[f].T), x = F[f].lam, axis = 2)/np.trapz(F[f].T, x = F[f].lam)
+        
+            
+    def create_Fnu_grid(self, F, z, cosmo):
+    
+        self.Fnu = {}
+    
+        self.Fnu['z'] = z
+    
+        luminosity_distance = cosmo.luminosity_distance(z).to('cm').value
+    
+        for f in F['filters']:
+            
+            self.Fnu[f] = 1E23 * 1E9 * np.trapz(np.multiply((self.grid['stellar'] + self.grid['nebular'])*IGM.madau(F[f].lam, z), F[f].T), x = F[f].lam, axis = 2)/np.trapz(F[f].T, x = F[f].lam) * (1.+z) / (4. * np.pi * luminosity_distance**2)
         
             
 
 
 
-def generate_L(model, Masses, Ages, Metallicities, MetSurfaceDensities, F):
 
-    L = {f: 0.0 for f in F.keys()}
+def generate_Lnu(model, Masses, Ages, Metallicities, MetSurfaceDensities, F):
 
-    for f in F.keys():
+    L = {f: 0.0 for f in F['filters']}
+
+    for f in F['filters']:
     
-        L = np.sum(generate_L_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, f))
+        L[f] = np.sum(generate_Lnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, f))
 
     return L
 
 
-def generate_L_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, f):
+def generate_Lnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, f):
 
     # --- determine dust attenuation
 
@@ -70,7 +87,7 @@ def generate_L_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F,
 
         # --- determine closest SED grid point 
 
-        l[i] = Mass * T * model.L[f][ia, iZ] # erg/s/Hz
+        l[i] = Mass * T * model.Lnu[f][ia, iZ] # erg/s/Hz
 
         # --- use interpolation [this appears to make a difference at the low-% level, far below other systematic uncertainties]
     
@@ -81,6 +98,57 @@ def generate_L_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F,
 
     return l
 
+
+
+def generate_Fnu(model, Masses, Ages, Metallicities, MetSurfaceDensities, F):
+
+    Fnu = {f: 0.0 for f in F['filters']}
+
+    for f in F['filters']:
+    
+        Fnu[f] = np.sum(generate_Fnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, f))
+
+    return Fnu
+
+
+def generate_Fnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, f):
+
+    # --- determine dust attenuation
+
+    if model.dust: tau_f = (F[f].pivwv()/(5500.*(1.+model.Fnu['z'])))**model.dust['slope']
+
+    l = np.zeros(Masses.shape)
+
+    for i, Mass, Age, Metallicity, MetalSurfaceDensity in zip(np.arange(Masses.shape[0]), Masses, Ages, Metallicities, MetSurfaceDensities):
+
+        log10age = np.log10(Age) + 6. # log10(age/yr)
+        log10Z = np.log10(Metallicity) # log10(Z)
+
+        ia = (np.abs(model.grid['log10age'] - log10age)).argmin()
+        iZ = (np.abs(model.grid['log10Z'] - log10Z)).argmin()
+
+        if model.dust:
+
+            tau_V = (10**model.dust['A']) * MetalSurfaceDensity  
+            
+            T = np.exp(-(tau_V * tau_f)) 
+
+        else:
+
+            T = 1.0
+
+        # --- determine closest SED grid point 
+
+        l[i] = Mass * T * model.Fnu[f][ia, iZ] # erg/s/Hz
+
+        # --- use interpolation [this appears to make a difference at the low-% level, far below other systematic uncertainties]
+    
+        # p = {'log10age': log10age, 'log10Z': log10Z}
+        # params = [[np.interp(p[parameter], model.grid[parameter], range(len(model.grid[parameter])))] for parameter in ['log10age','log10Z']] # used in interpolation
+        # L[f] +=  Mass * T * ndimage.map_coordinates(model.L[f], params, order=1)[0]
+
+
+    return l
 
 
 
