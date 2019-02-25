@@ -5,9 +5,19 @@ from astropy.convolution import convolve, Gaussian2DKernel
 import webbpsf
 
 
+import FLARE.filters 
+
+
+
+
+def physical_images(X, Y, luminosities, filters, resolution = 0.1, Ndim = 100, smoothed=True):
+
+    return {f: physical_image(X, Y, luminosities[f], resolution = resolution, Ndim = Ndim, smoothed = smoothed) for f in filters}
+    
+
 class physical_image():
 
-    def __init__(self, X, Y, L, resolution = 0.1, Ndim = 100, smoothed = True, show = False):
+    def __init__(self, X, Y, L, resolution = 0.1, Ndim = 100, smoothed = True):
 
         # Centre star particle positions using the median as the centre *** NOTE: true centre could later be defined ***
         X -= np.median(X)
@@ -57,101 +67,93 @@ class physical_image():
         
                 self.img[j,i] += l
         
-        if show:
-        
-            plt.imshow(self.img)
-            plt.show()
+
+
+
+
+
+def webbPSFs(filters, width, resampling_factor=1):
+
+    return {f: webbPSF(f, width, resampling_factor) for f in filters}
+
 
      
-class webbPSFs():
+class webbPSF():
+
     """ A class for extracting and storing point spread functions (PSFs) for the Webb Space
     Telescope using WebbPSF (STScI: https://webbpsf.readthedocs.io/en/stable/index.html).
     """
 
-    def __init__(self, nircfilter, width, resolution, resampling_factor=1):
+    def __init__(self, filter, width, resampling_factor=1):
         """
-        :param nircfilter: Either a string of the form JWST.NIRCam.XXXXX, where XXXXX is the desired filter code
-        or the FWHM of the gaussian PSF (float).
+        :param f: tje filter of the form JWST.NIRCam.XXX or JWST.MIRI.XXX
         :param width: Width of the image along a single axis (this is approximate since images must be odd in dimension)
-        :param resolution: The detector angular resolution in arcsecond per pixel (short wavelength channel= 0.031,
-        long wavelength channel= 0.063)
         :param resampling_factor: The integer amount of resampling done to increase resolution. (int)
         :param gaussFWHM: If a simple gaussian PSF is required the FWHM of that PSF in arcseconds. (float)
         """
-
-        # Define Attribute
-        self.nircfilter = nircfilter  # filter list
+        
+        inst = filter.split('.')[1]
+        f = filter.split('.')[-1]
+        
+        if filter in FLARE.filters.NIRCam_l: 
+            self.resolution = 0.063
+        elif filter in FLARE.filters.NIRCam_s: 
+            self.resolution = 0.031
+        else:
+            print('filter not found')
 
         # Ndim must odd for convolution with the PSF
-        ini_Ndim = int(width / resolution)
+        ini_Ndim = int(width / self.resolution)
         if ini_Ndim % 2 != 0:
-            self.Ndim = int(width / resolution)
+            self.Ndim = int(width / self.resolution)
         else:
-            self.Ndim = int(width / resolution) + 1
+            self.Ndim = int(width / self.resolution) + 1
 
-        # If nircfilter is a valid webbPSF
-        if isinstance(nircfilter, str):
-            
-            # Compute the PSF
-            nc = webbpsf.NIRCam()  # Assign NIRCam object to variable.
-            nc.filter = self.nircfilter.split('.')[-1]  # Set filter.
-            self.PSF = nc.calc_psf(oversample=resampling_factor, fov_pixels=self.Ndim)[0].data  # compute PSF
+        if inst == 'NIRCAM':  nc = webbpsf.NIRCam()
 
-        # If no gaussian FWHM is passed use Web PSFs
-        if gaussFWHM is None:
+        nc.filter = f
+        self.PSF = nc.calc_psf(oversample=resampling_factor, fov_pixels=self.Ndim)[0].data  # compute PSF
 
-            # Check if filters is a list or string
-            # If filters is a list create a PSF for each filter
-            if isinstance(filters, list):
-
-                for fstring in self.filters:
-
-                    f = fstring.split('.')[-1]
-                    # Compute the PSF
-                    nc = webbpsf.NIRCam()  # Assign NIRCam object to variable.
-                    nc.filter = f  # Set filter.
-                    self.PSFs[fstring] = nc.calc_psf(oversample=resampling_factor, fov_pixels=self.Ndim)[0].data  # compute PSF
-
-            # If it is a string create a single PSF for that string
-            elif isinstance(filters, str):
-
-                # Compute the PSF
-                nc = webbpsf.NIRCam()  # Assign NIRCam object to variable.
-                nc.filter = self.filters.split('.')[-1]  # Set filter.
-                self.PSFs[self.filters] = nc.calc_psf(oversample=resampling_factor, fov_pixels=self.Ndim)[0].data  # compute PSF
-
-            # If neither of the previous conditions are satisfied then filters is not an acceptable format
-            else:
-                print('WARNING: Incompatible format for filters, '
-                      'should be list: [JWST.NIRCam.XXXXX] or string: "JWST.NIRCam.XXXXX" ')
+      
 
 
-        # Else create a gaussian PSF
-        else:
-            self.PSF = Gaussian2DKernel(nircfilter/2.355)
-            # Check if filters is a list or string
-            # If filters is a list create a PSF for each filter
-            if isinstance(filters, list):
-
-                for fstring in self.filters:
-
-                    f = fstring.split('.')[-1]
-                    self.PSFs[fstring] = Gaussian2DKernel(gaussFWHM/2.355)
-
-            # If it is a string create a single PSF for that string
-            elif isinstance(filters, str):
-
-                # Compute the PSF
-                nc = webbpsf.NIRCam()  # Assign NIRCam object to variable.
-                nc.filter = self.filters.split('.')[-1]  # Set filter.
-                self.PSFs[self.filters] = Gaussian2DKernel(gaussFWHM/2.355)
-
-            # If neither of the previous conditions are satisfied then filters is not an acceptable format
-            else:
-                print('WARNING: Incompatible format for filters, '
-                      'should be list: [JWST.NIRCam.XXXXX] or string: "JWST.NIRCam.XXXXX" ')
 
 
+
+
+# 
+# class gauss():
+# 
+#     def __init__():
+# 
+#         self.PSF = Gaussian2DKernel(nircfilter/2.355)
+#         # Check if filters is a list or string
+#         # If filters is a list create a PSF for each filter
+#         if isinstance(filters, list):
+# 
+#             for fstring in self.filters:
+# 
+#                 f = fstring.split('.')[-1]
+#                 self.PSFs[fstring] = Gaussian2DKernel(gaussFWHM/2.355)
+# 
+#         # If it is a string create a single PSF for that string
+#         elif isinstance(filters, str):
+# 
+#             # Compute the PSF
+#             nc = webbpsf.NIRCam()  # Assign NIRCam object to variable.
+#             nc.filter = self.filters.split('.')[-1]  # Set filter.
+#             self.PSFs[self.filters] = Gaussian2DKernel(gaussFWHM/2.355)
+# 
+
+
+
+
+
+def observed_images(X, Y, fluxes, filters, cosmo, redshift=8, width=10., resampling_factor=1, smoothed=True, PSFs = False, show = False):
+
+    return {f: observed_image(X, Y, fluxes[f], f, cosmo, redshift, width, resampling_factor, smoothed, PSFs[f], show) for f in filters}
+    
+    
 
 
 class observed_image():
@@ -159,8 +161,7 @@ class observed_image():
     initial image and if desired applying a PSF for the defined filter.
     """
     
-    def __init__(self, X, Y, flux, nircfilter, cosmo, redshift=8, width=10., resolution=0.031, resampling_factor=1,
-                 smoothed=True, PSF_obj=None, show=False):
+    def __init__(self, X, Y, flux, filter, cosmo, redshift=8, width=10., resampling_factor=1, smoothed=True, PSF = False, show = False):
         """
         :param X: Star Particle X position in kpc. [nStar]
         :param Y: Star Particle Y position in kpc. [nStar]
@@ -170,18 +171,26 @@ class observed_image():
         :param cosmo: A astropy.cosmology object.
         :param redshift: The redshift (z).
         :param width: Width of the image along a single axis (this is approximate since images must be odd in dimension)
-        :param resolution: The detector angular resolution in arcsecond per pixel (short wavelength channel= 0.031,
-        long wavelength channel= 0.063)
         :param resampling_factor: The integer amount of resampling done to increase resolution. (int)
         :param smoothed: Boolean, whether to apply smoothing.
-        :param PSF_obj: Instance of the webbPSFs object for the desired nircfilter in nircfilter or None.
+        :param PSF: Instance of the webbPSFs object for the desired filter .
         :param show: Boolean, whether to show images.
         """
+
+        if filter in FLARE.filters.NIRCam_l: 
+            self.resolution = 0.063
+        elif filter in FLARE.filters.NIRCam_s: 
+            self.resolution = 0.031
+        else:
+            print('filter not found')
+
 
         # Define instance attributes
         # Centre star particle positions using the median as the centre *** NOTE: true centre could later be defined ***
         self.X = X - np.median(X)
         self.Y = Y - np.median(Y)
+        
+        self.PSF = PSF # PSF object
 
         # Compute angular star particle positions in arcseconds
         
@@ -192,32 +201,41 @@ class observed_image():
         
         self.cosmo = cosmo
 
+
+        inst = filter.split('.')[1]
+        f = filter.split('.')[-1]
+        
         self.resampling_factor = resampling_factor
-        self.base_pixel_scale = resolution  # pre-resample resolution
+        self.base_pixel_scale = self.resolution  # pre-resample resolution
         self.pixel_scale = self.base_pixel_scale / self.resampling_factor  # the final image pixel scale
         self.smoothed = smoothed
+        
+        
+
 
         # Ndim must odd for convolution with the PSF
-        ini_Ndim = int(width / self.pixel_scale)
+        ini_Ndim = int(width / self.resolution)
         if ini_Ndim % 2 != 0:
-            self.Ndim = int(width / self.pixel_scale)
+            self.Ndim = int(width / self.resolution)
         else:
-            self.Ndim = int(width / self.pixel_scale) + 1
+            self.Ndim = int(width / self.resolution) + 1
+
 
         self.width = self.Ndim * self.pixel_scale  # width along each axis image in arcseconds
         self.flux = flux
-        self.PSF = PSF_obj  # PSF object
+        
 
-        assert self.Ndim == self.PSF.Ndim, 'PSF object must have the same dimensions as image object'
 
-        assert self.Ndim == self.PSF_dict.Ndim, 'PSF object must have the same dimensions as image object'
-
-        # Make sure fluxes is compatible with the number of provided filters
-        if isinstance(filters, list):
-            try:
-                assert fluxes.shape[1] == len(filters), 'Fluxes must be provided for each filter'
-            except IndexError:
-                print('Fluxes must be provided for each filter')
+#         assert self.Ndim == self.PSF.Ndim, 'PSF object must have the same dimensions as image object'
+# 
+#         assert self.Ndim == self.PSF_dict.Ndim, 'PSF object must have the same dimensions as image object'
+# 
+#         # Make sure fluxes is compatible with the number of provided filters
+#         if isinstance(filters, list):
+#             try:
+#                 assert fluxes.shape[1] == len(filters), 'Fluxes must be provided for each filter'
+#             except IndexError:
+#                 print('Fluxes must be provided for each filter')
 
         # Get the range of x and y star particle positions
         pos_range = [np.max(X) - np.min(X), np.max(Y) - np.min(Y)]
@@ -238,8 +256,8 @@ class observed_image():
 
             self.img = self.simpleimg(self.flux)
 
-        # If PSFs have been provided (PSFs variable is an instance of webbPSFs class) apply the PSF for each filter
-        if isinstance(self.PSF, webbPSFs):
+
+        if self.PSF:
 
             print('Applying PSF...')
             print(self.Ndim)
@@ -254,7 +272,7 @@ class observed_image():
             print('Showing...')
 
             # If PSFs have been provided show simple images and PSF'd images
-            if isinstance(self.PSF, webbPSFs):
+            if self.PSF:
 
                 plt.figure(1)
                 plt.imshow(self.img)
@@ -268,73 +286,7 @@ class observed_image():
                 plt.imshow(self.img)
 
             plt.show()
-            
-    @classmethod
-    def multifilter(cls, X, Y, fluxes, nircfilters, cosmo, redshift=8, width=10., alt_res=0.01, resampling_factor=1,
-                     smoothed=True, show=False):
-        """ A helper method to create a set of images for the same object in different filters WITH PSF. If a gaussian
-        PAF is required an alternative resolution must be supplied and nircfilters must be a list of the FWHMs for the
-        gaussian kernel.
-
-        :param X: Star Particle X position in kpc. [nStar]
-        :param Y: Star Particle Y position in kpc. [nStar]
-        :param fluxes: A dictionary of flux arrays for the star particles. {nircfilters:flux array}
-        :param nircfilters: Either a list of strings of the form JWST.NIRCam.XXXXX, where XXXXX is the desired
-        filter code or a list of the FWHM of the gaussian PSFs (float).
-        :param cosmo: A astropy.cosmology object.
-        :param redshift: The redshift (z).
-        :param width: Width of the image along a single axis (this is approximate since images must be odd in dimension)
-        :param alt_res: The non NIRCam resolution to use if non-Webb images are required. If using Webb filters at
-        detector resolution this does not need to supplied.
-        :param resampling_factor: The integer amount of resampling done to increase resolution. (int)
-        :param smoothed: Boolean, whether to apply smoothing.
-        :param show: Boolean, whether to show images.
-        :return:
-        """
-
-        # For W, M and N, R=4,10,100 respectively (resolving power)
-        # Define lists for filters associated with long wavelength observations (0.063" resolution)
-        # and short wavelength observations (0.031").
-        longFilters = ['F250M', 'F277W', 'F300M', 'F322W2', 'F323N+F322W2', 'F335M', 'F356W', 'F360M',
-                       'F405N+F444W', 'F410M', 'F430M', 'F444W', 'F460M', 'F466N+F444W', 'F470N+F444W', 'F480M']
-        shortFilters = ['F070W', 'F090W', 'F115W', 'F140M', 'F150W', 'F150W2', 'F182M', 'F187N', 'F200W', 'F210M',
-                        'F212N', 'F164N+F150W2', 'F162M+F150W2']
-
-        # Check a flux has been provided for each filter
-        assert len(fluxes.keys()) == len(nircfilters), 'Each filter must have a corresponding flux array'
-
-        # Initialise image dictionaries
-        imgs = {}
-        psf_imgs = {}
-
-        # Loop through filters
-        for nircf in nircfilters:
-
-            # Get the resolution for the supplied filter unless a gaussian is required and an alternative resolution
-            # has been defined
-            if nircf.split('.')[-1] in shortFilters:
-                resolution = 0.031
-            elif nircf.split('.')[-1] in longFilters:
-                resolution = 0.063
-            else:
-                resolution = alt_res
-
-            # Get the PSF for this filter
-            PSF_obj = webbPSFs(nircf, width, resolution)
-
-            # Initialise image object for this filter and flux combination
-            ob_img = cls(X, Y, fluxes[nircf], nircf, cosmo, redshift, width, resolution, resampling_factor,
-                     smoothed, PSF_obj, show)
-
-            # Extract the simple image from the image object and store it in the dictionary
-            imgs[nircf] = ob_img.img
-
-            # Extract the image with psf from the image object and store it in the dictionary
-            psf_imgs[nircf] = ob_img.psf_img
-
-        return imgs, psf_imgs
-
-
+        
     def simpleimg(self, F):
         """ A method for creating simple images where the stars are binned based on their position.
 
@@ -385,7 +337,7 @@ class observed_image():
         nndists, nninds = tree.query(np.column_stack([self.X_arcsec, self.Y_arcsec]), k=7, n_jobs=-1)
 
         # Define the miniimum smoothing for 0.1kpc in arcseconds
-        min_smooth = 0.1 * self.cosmo.arcsec_per_kpc_proper(redshift).value
+        min_smooth = 0.1 * self.arcsec_per_proper_kpc
 
         # Loop over each star computing the smoothed gaussian distribution for this particle
         for x, y, l, nndist in zip(self.X_arcsec, self.Y_arcsec, F, nndists):

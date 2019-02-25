@@ -24,13 +24,17 @@ model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300') # DEFINE SED G
 model.dust = {'A': 5.2, 'slope': -1.0} # DEFINE DUST MODEL - these are the calibrated z=8 values for the dust model
 
 
-filters = ['JWST.NIRCAM.F150W']
+filters = FLARE.filters.NIRCam_W
 
+print(filters)
+
+width = 2. # size of cutout in "
 z = 8.
 
 F = FLARE.filters.add_filters(filters, new_lam = model.lam * (1.+z)) 
 
-PSF = SynthObs.Morph.webbPSFs(F['filters'], 101) 
+PSFs = SynthObs.Morph.webbPSFs(F['filters'], width) # creates a dictionary of instances of the webbPSF class
+
 
 
 model.create_Fnu_grid(F, z, cosmo)
@@ -40,17 +44,29 @@ test = SynthObs.test_data() # --- read in some test data
 Fnu = {f: models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, F, f) for f in filters}
 
 
-img = SynthObs.Morph.observed_image(test.X, test.Y, Fnu['JWST.NIRCAM.F150W'], 'JWST.NIRCAM.F150W', cosmo, redshift = 8., Ndim = 101, smoothed = True, show = True, PSFs = PSF)
+img = SynthObs.Morph.observed_images(test.X, test.Y, Fnu, filters, cosmo, redshift = 8., width = width, smoothed = True, show = False, PSFs = PSFs)
 
 
-plt.imshow(img.img['JWST.NIRCAM.F150W'])
-plt.savefig('webbnopsf.png')
-plt.clf()
 
 
-plt.imshow(img.psf_img['JWST.NIRCAM.F150W'])
-plt.savefig('webbpsf.png')
-plt.clf()
+
+fig, axes = plt.subplots(1, len(filters), figsize = (len(filters)*2., 2))
+
+fig.subplots_adjust(left=0.0, bottom=0.0, right=1.0, top=1.0, wspace=0.0, hspace=0.0)
+
+for ax, f in zip(axes.flatten(), filters):
+    
+    ax.imshow(img[f].psf_img)
+    
+    ax.get_xaxis().set_ticks([])
+    ax.get_yaxis().set_ticks([])
+    ax.text(0.5, 0.85, f.split('.')[-1], fontsize = 15, color='1.0', alpha = 0.3, horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
+
+
+fig.savefig('webb.png')
+plt.show()
+
+
 
 # 
 # 
