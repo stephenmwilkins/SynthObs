@@ -16,9 +16,11 @@ width = 10
 
 filters = FLARE.filters.NIRCam_W # all NIRCam wide filters
 
+filters = ['JWST.NIRCAM.F115W','JWST.NIRCAM.F150W']
+
 print(filters)
 
-PSF = SynthObs.Morph.webbPSFs(filters, width) # creates a dictionary of instances of the webbPSF class
+PSFs = SynthObs.Morph.webbPSFs(filters, width) # creates a dictionary of instances of the webbPSF class
 
 
 fig, axes = plt.subplots(1, len(filters), figsize = (len(filters)*2., 2))
@@ -27,7 +29,7 @@ fig.subplots_adjust(left=0.0, bottom=0.0, right=1.0, top=1.0, wspace=0.0, hspace
 
 for ax, f in zip(axes.flatten(), filters):
     
-    ax.imshow(np.log10(PSF.PSFs[f].PSF))
+    ax.imshow(np.log10(PSFs[f].PSF))
     
     ax.get_xaxis().set_ticks([])
     ax.get_yaxis().set_ticks([])

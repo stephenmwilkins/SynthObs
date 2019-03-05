@@ -26,6 +26,8 @@ model.dust = {'A': 5.2, 'slope': -1.0} # DEFINE DUST MODEL - these are the calib
 
 filters = FLARE.filters.NIRCam_W
 
+filters = ['JWST.NIRCAM.F115W','JWST.NIRCAM.F356W']
+
 print(filters)
 
 width = 2. # size of cutout in "
@@ -41,13 +43,10 @@ model.create_Fnu_grid(F, z, cosmo)
 
 test = SynthObs.test_data() # --- read in some test data
 
-Fnu = {f: models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, F, f) for f in filters}
+Fnu = {f: models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, F, f) for f in filters} # arrays of star particle fluxes in nJy
 
 
 img = SynthObs.Morph.observed_images(test.X, test.Y, Fnu, filters, cosmo, redshift = 8., width = width, smoothed = True, show = False, PSFs = PSFs)
-
-
-
 
 
 fig, axes = plt.subplots(1, len(filters), figsize = (len(filters)*2., 2))
@@ -58,12 +57,13 @@ for ax, f in zip(axes.flatten(), filters):
     
     ax.imshow(img[f].psf_img)
     
+    print(f, np.sum(img[f].img)) # total flux in nJy
+    
     ax.get_xaxis().set_ticks([])
     ax.get_yaxis().set_ticks([])
     ax.text(0.5, 0.85, f.split('.')[-1], fontsize = 15, color='1.0', alpha = 0.3, horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
 
 
-fig.savefig('webb.png')
 plt.show()
 
 

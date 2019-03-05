@@ -34,30 +34,12 @@ filters = ['FAKE.FAKE.'+f for f in ['1500','2500']] # --- define the filters. FA
 
 F = FLARE.filters.add_filters(filters, new_lam = model.lam) 
 
-model.create_Lnu_grid(F) # --- create new L grid for each filter
+model.create_Lnu_grid(F) # --- create new L grid for each filter. In units of erg/s/Hz
 
-Lnu = models.generate_Lnu(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, F) # --- calculate rest-frame L uminosity
+Lnu = models.generate_Lnu(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, F) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
 
 for f in F['filters']:
     print(f, Lnu[f])
-
-
-# --- create observed frame fluxes
-
-z = 8.
-
-F = FLARE.filters.add_filters(FLARE.filters.NIRCam_W, new_lam = model.lam * (1. + z)) 
-
-cosmo = FLARE.default_cosmo()
-
-model.create_Fnu_grid(F, z, cosmo) # --- create new Fnu grid for each filter
-
-Fnu = models.generate_Fnu(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, F) # --- calculate rest-frame L uminosity
-
-for f in F['filters']:
-    print(f, Fnu[f]) 
-
-
 
 
 
