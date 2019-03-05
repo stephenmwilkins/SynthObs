@@ -1,27 +1,27 @@
 from scipy.spatial import cKDTree
 import numpy as np
 import matplotlib.pyplot as plt
-from astropy.convolution import convolve_fft, Gaussian2DKernel
+from astropy.convolution import convolve, convolve_fft, Gaussian2DKernel
 import webbpsf
 
 import FLARE.filters 
 
 
-def physical_images(X, Y, luminosities, filters, resolution = 0.1, Ndim = 100, smoothed=True):
+def physical_images(X, Y, luminosities, filters, resolution = 0.1, Ndim = 100, smoothing = 'simple'):
 
-    return {f: physical_image(X, Y, luminosities[f], resolution = resolution, Ndim = Ndim, smoothed = smoothed) for f in filters}
+    return {f: physical_image(X, Y, luminosities[f], resolution = resolution, Ndim = Ndim, smoothing = smoothing) for f in filters}
     
 
 class physical_image():
 
-    def __init__(self, X, Y, L, resolution = 0.1, Ndim = 100, smoothed = True):
+    def __init__(self, X, Y, L, resolution = 0.1, Ndim = 100, smoothing = 'simple'):
 
         # Centre star particle positions using the median as the centre *** NOTE: true centre could later be defined ***
         X -= np.median(X)
         Y -= np.median(Y)
 
         # Boolean = Whether to apply gaussian smoothing to star particles
-        self.smoothed = smoothed
+        self.smoothing = smoothing
 
         # Image properties
         self.Ndim = Ndim
@@ -29,18 +29,62 @@ class physical_image():
         self.width = Ndim * resolution 
 
         range = [np.max(X) - np.min(X), np.max(Y) - np.min(Y)]
-        print(range) 
 
         if any(x>Ndim*resolution for x in range): print('Warning particles will extend beyond image limits')
 
-        if not self.smoothed: g = np.linspace(-self.width/2.,self.width/2.,Ndim)
-
-        if self.smoothed: Gx, Gy = np.meshgrid(np.linspace(-self.width/2., self.width/2., Ndim),
-                                               np.linspace(-self.width/2., self.width/2., Ndim))
+        
 
         self.img = np.zeros((self.Ndim, self.Ndim))
 
-        if self.smoothed:
+        # --- exclude particles not inside the image area
+        
+        sel = (np.fabs(X)<self.width/2.)&(np.fabs(Y)<self.width/2.)
+        
+        X = X[sel]
+        Y = Y[sel]
+        L = L[sel]
+
+        
+        if self.smoothing == 'simple_old':
+        
+            Gx, Gy = np.meshgrid(np.linspace(-self.width/2., self.width/2., Ndim), np.linspace(-self.width/2., self.width/2., Ndim))
+        
+            # --- can probably replace this with the unsmoothed but convolved by a gaussian
+
+            r = 0.1
+            
+            for x,y,l in zip(X, Y, L):
+                
+                gauss = np.exp(-(((Gx - x)**2 + (Gy - y)**2)/ ( 2.0 * r**2 ) ) )  
+                
+                sgauss = np.sum(gauss)
+
+                if sgauss > 0: self.img += l*gauss/sgauss
+
+
+        elif self.smoothing == 'simple':
+        
+            Gx, Gy = np.meshgrid(np.linspace(-(self.width+self.resolution)/2., (self.width+self.resolution)/2., Ndim+1), np.linspace(-(self.width+self.resolution)/2., (self.width+self.resolution)/2., Ndim+1))
+        
+            r = 0.1
+            gauss = np.exp(-((Gx**2 + Gy**2)/ ( 2.0 * r**2 ) ) )  
+            gauss /= np.sum(gauss)
+            
+            g = np.linspace(-self.width/2.,self.width/2.,Ndim)
+        
+            for x,y,l in zip(X, Y, L):
+        
+                i, j = (np.abs(g - x)).argmin(), (np.abs(g - y)).argmin()
+        
+                self.img[j,i] += l
+                
+            self.img = convolve_fft(self.img, gauss)
+            
+            
+
+        elif self.smoothing == 'adaptive':
+         
+            Gx, Gy = np.meshgrid(np.linspace(-self.width/2., self.width/2., Ndim), np.linspace(-self.width/2., self.width/2., Ndim))
 
             tree = cKDTree(np.column_stack([X, Y]), leafsize=16, compact_nodes=True, copy_data=False, balanced_tree=True)
 
@@ -48,21 +92,34 @@ class physical_image():
         
             for x,y,l,nndist in zip(X, Y, L, nndists):
     
-                r = np.max([nndist[-1], 0.1])
-    
+                r = np.max([nndist[-1], self.resolution])
+                
                 gauss = np.exp(-(((Gx - x)**2 + (Gy - y)**2)/ ( 2.0 * r**2 ) ) )  
 
                 sgauss = np.sum(gauss)
 
                 if sgauss > 0: self.img += l*gauss/sgauss
 
+
         else:
+        
+        
+            g = np.linspace(-self.width/2.,self.width/2.,Ndim)
         
             for x,y,l in zip(X, Y, L):
         
                 i, j = (np.abs(g - x)).argmin(), (np.abs(g - y)).argmin()
         
                 self.img[j,i] += l
+
+
+
+
+
+
+
+
+
 
 
 def webbPSFs(filters, width, resampling_factor=1):
@@ -330,8 +387,8 @@ class observed_image():
 
             # Define sub image over which to compute the smooothing for this star (1/4 of the images size)
             # NOTE: this drastically speeds up image creation
-            sub_xlow, sub_xhigh = x_img - int(Ndim / 8), x_img + int(Ndim / 8) + 1
-            sub_ylow, sub_yhigh = y_img - int(Ndim / 8), y_img + int(Ndim / 8) + 1
+            sub_xlow, sub_xhigh = x_img - int(self.Ndim / 8), x_img + int(self.Ndim / 8) + 1
+            sub_ylow, sub_yhigh = y_img - int(self.Ndim / 8), y_img + int(self.Ndim / 8) + 1
 
             # Compute the image
             g = np.exp(-(((Gx[sub_xlow:sub_xhigh, sub_ylow:sub_yhigh] - x) ** 2

@@ -100,8 +100,8 @@ class intrinsic():
     
         self.cat = source_properties(self.img.img, self.segm)
     
-        for i, o in enumerate(self.cat):
-            print(i, o.centroid, o.source_sum/np.sum(self.img.img))
+#         for i, o in enumerate(self.cat):
+#             print(i, o.centroid, o.source_sum/np.sum(self.img.img))
             
                      
     def measure_profile(self, objid = 0, dr = 0.1, show = False): # --- measure the profile
