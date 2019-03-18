@@ -24,9 +24,7 @@ model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300') # DEFINE SED G
 model.dust = {'A': 5.2, 'slope': -1.0} # DEFINE DUST MODEL - these are the calibrated z=8 values for the dust model
 
 
-filters = FLARE.filters.NIRCam_W[3:]
-
-
+filters = FLARE.filters.Euclid_NISP
 
 print(filters)
 
@@ -35,7 +33,7 @@ z = 8.
 
 F = FLARE.filters.add_filters(filters, new_lam = model.lam * (1.+z)) 
 
-PSFs = SynthObs.Morph.webbPSFs(F['filters'], width) # creates a dictionary of instances of the webbPSF class
+PSFs = SynthObs.Morph.euclidPSFs(F['filters']) # creates a dictionary of instances of the webbPSF class
 
 
 
@@ -47,7 +45,6 @@ Fnu = {f: models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallic
 
 
 img = SynthObs.Morph.observed_images(test.X, test.Y, Fnu, filters, cosmo, redshift = 8., width = width, smoothed = True, show = False, PSFs = PSFs)
-
 
 fig, axes = plt.subplots(1, len(filters), figsize = (len(filters)*2., 2))
 
@@ -63,7 +60,8 @@ for ax, f in zip(axes.flatten(), filters):
     ax.get_yaxis().set_ticks([])
     ax.text(0.5, 0.85, f.split('.')[-1], fontsize = 15, color='1.0', alpha = 0.3, horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
 
-plt.savefig('webb.pdf')
+
+plt.savefig('euclid.pdf')
 plt.show()
 
 

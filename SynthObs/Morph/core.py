@@ -2,9 +2,14 @@ from scipy.spatial import cKDTree
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.convolution import convolve, convolve_fft, Gaussian2DKernel
+
 import webbpsf
+from astropy.io import fits
+
+from ..core import * 
 
 import FLARE.filters 
+
 
 
 def physical_images(X, Y, luminosities, filters, resolution = 0.1, Ndim = 100, smoothing = 'simple'):
@@ -164,6 +169,29 @@ class webbPSF():
         self.PSF = nc.calc_psf(oversample=resampling_factor, fov_pixels=self.Ndim)[0].data  # compute PSF
 
 
+
+def euclidPSFs(filters):
+
+    return {f: euclidPSF(f) for f in filters}
+
+class euclidPSF():
+
+    def __init__(self, f):
+    
+        # --- these are only 85 * 85 but that is large!
+    
+        if f.split('.')[-1]=='Y':
+    
+            fn = FLARE_dir + 'data/PSF/Euclid/Oesch/EUC_NISP_PSF-Y-SOLAR-AOCS-3632-SC3_20161212T220137.4Z_01.00.fits'
+        
+        else:
+        
+            fn = FLARE_dir + 'data/PSF/Euclid/Oesch/EUC_NISP_PSF-{0}-SOLAR-AOCS-3632-SC3_20161212T221037.4Z_01.00.fits'.format(f.split('.')[-1])   
+        
+        self.PSF = fits.open(fn)[0].data
+
+
+
 # class gauss():
 # 
 #     def __init__():
@@ -218,6 +246,8 @@ class observed_image():
             self.resolution = 0.063
         elif filter in FLARE.filters.NIRCam_s: 
             self.resolution = 0.031
+        elif filter in FLARE.filters.Euclid:
+            self.resolution = 0.30
         else:
             print('filter not found')
 
