@@ -36,7 +36,7 @@ F = FLARE.filters.add_filters(filters, new_lam = model.lam)
 
 model.create_Lnu_grid(F) # --- create new L grid for each filter. In units of erg/s/Hz
 
-Lnu = models.generate_Lnu(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, F) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
+Lnu = models.generate_Lnu(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, F, fesc = 1.0) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
 
 for f in F['filters']:
     print(f, Lnu[f])

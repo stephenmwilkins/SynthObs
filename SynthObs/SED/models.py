@@ -4,6 +4,8 @@ import numpy as np
 import pickle
 
 
+class empty(): pass
+
 from ..core import * 
 
 from FLARE.SED import core
@@ -27,10 +29,16 @@ class define_model():
         self.Lnu = {}
     
         for f in F['filters']:
+        
+            # self.Lnu[f] = np.trapz(np.multiply(self.grid['nebular'] + self.grid['stellar'], F[f].T), x = F[f].lam, axis = 2)/np.trapz(F[f].T, x = F[f].lam)
+        
+            self.Lnu[f] = empty()
             
-            self.Lnu[f] = np.trapz(np.multiply(self.grid['stellar'] + self.grid['nebular'], F[f].T), x = F[f].lam, axis = 2)/np.trapz(F[f].T, x = F[f].lam)
+            self.Lnu[f].stellar = np.trapz(np.multiply(self.grid['stellar'], F[f].T), x = F[f].lam, axis = 2)/np.trapz(F[f].T, x = F[f].lam)
+            self.Lnu[f].nebular = np.trapz(np.multiply(self.grid['nebular'], F[f].T), x = F[f].lam, axis = 2)/np.trapz(F[f].T, x = F[f].lam)
         
             
+        
     def create_Fnu_grid(self, F, z, cosmo):
     
         self.Fnu = {}
@@ -41,25 +49,28 @@ class define_model():
     
         for f in F['filters']:
             
-            self.Fnu[f] = 1E23 * 1E9 * np.trapz(np.multiply((self.grid['stellar'] + self.grid['nebular'])*IGM.madau(F[f].lam, z), F[f].T), x = F[f].lam, axis = 2)/np.trapz(F[f].T, x = F[f].lam) * (1.+z) / (4. * np.pi * luminosity_distance**2)
+            self.Fnu[f] = empty()
+            
+            self.Fnu[f].stellar = 1E23 * 1E9 * np.trapz(np.multiply((self.grid['stellar'])*IGM.madau(F[f].lam, z), F[f].T), x = F[f].lam, axis = 2)/np.trapz(F[f].T, x = F[f].lam) * (1.+z) / (4. * np.pi * luminosity_distance**2)
+            self.Fnu[f].nebular = 1E23 * 1E9 * np.trapz(np.multiply((self.grid['nebular'])*IGM.madau(F[f].lam, z), F[f].T), x = F[f].lam, axis = 2)/np.trapz(F[f].T, x = F[f].lam) * (1.+z) / (4. * np.pi * luminosity_distance**2)
         
             
 
 
 
 
-def generate_Lnu(model, Masses, Ages, Metallicities, MetSurfaceDensities, F):
+def generate_Lnu(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, fesc = 0.0):
 
     L = {f: 0.0 for f in F['filters']}
 
     for f in F['filters']:
     
-        L[f] = np.sum(generate_Lnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, f))
+        L[f] = np.sum(generate_Lnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, f, fesc = fesc))
 
     return L
 
 
-def generate_Lnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, f):
+def generate_Lnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, f, fesc = 0.0):
 
     # --- determine dust attenuation
 
@@ -87,7 +98,7 @@ def generate_Lnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, 
 
         # --- determine closest SED grid point 
 
-        l[i] = Mass * T * model.Lnu[f][ia, iZ] # erg/s/Hz
+        l[i] = Mass * T * (model.Lnu[f].stellar[ia, iZ] + (1.-fesc)*model.Lnu[f].nebular[ia, iZ]) # erg/s/Hz
 
         # --- use interpolation [this appears to make a difference at the low-% level, far below other systematic uncertainties]
     
@@ -100,18 +111,18 @@ def generate_Lnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, 
 
 
 
-def generate_Fnu(model, Masses, Ages, Metallicities, MetSurfaceDensities, F):
+def generate_Fnu(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, fesc = 0.0):
 
     Fnu = {f: 0.0 for f in F['filters']}
 
     for f in F['filters']:
     
-        Fnu[f] = np.sum(generate_Fnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, f))
+        Fnu[f] = np.sum(generate_Fnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, f, fesc = fesc))
 
     return Fnu
 
 
-def generate_Fnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, f):
+def generate_Fnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, f, fesc = 0.0):
 
     # --- determine dust attenuation
 
@@ -139,7 +150,9 @@ def generate_Fnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, 
 
         # --- determine closest SED grid point 
 
-        l[i] = Mass * T * model.Fnu[f][ia, iZ] # erg/s/Hz
+        # l[i] = Mass * T * model.Fnu[f][ia, iZ] 
+        
+        l[i] = Mass * T * (model.Fnu[f].stellar[ia, iZ] + (1.-fesc)*model.Fnu[f].nebular[ia, iZ]) # erg/s/Hz
 
         # --- use interpolation [this appears to make a difference at the low-% level, far below other systematic uncertainties]
     
@@ -157,7 +170,7 @@ def generate_Fnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, 
 class generate_SED():
 
     
-    def __init__(self, model, Masses, Ages, Metallicities, MetSurfaceDensities, include_intrinsic = True, IGM = False):
+    def __init__(self, model, Masses, Ages, Metallicities, MetSurfaceDensities, include_intrinsic = True, IGM = False, fesc = 0.0):
 
 
         self.model = model
@@ -211,7 +224,7 @@ class generate_SED():
 
 
 
-        self.total.lnu = self.stellar.lnu + self.nebular.lnu # erg/s/Hz
+        self.total.lnu = self.stellar.lnu + (1-fesc) * self.nebular.lnu # erg/s/Hz
         
         if include_intrinsic: self.intrinsic_total.lnu = self.intrinsic_stellar.lnu + self.intrinsic_nebular.lnu # erg/s/Hz
 

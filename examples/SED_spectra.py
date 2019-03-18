@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300') # DEFINE SED GRID - 
 model.dust = {'A': 5.2, 'slope': -1.0} # DEFINE DUST MODEL - these are the calibrated z=8 values for the dust model
 
-
+fesc = 0.0
 
 # --- read in test data
 
@@ -36,7 +36,7 @@ test = SynthObs.test_data() # --- read in some test data
 
 # --- now generate the various SEDs (nebular, stellar, total) [THIS IS IN THE REST-FRAME]
 
-o = models.generate_SED(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities)
+o = models.generate_SED(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, fesc = 1.0)
 
 # --- now calculate some broad band photometry [THIS IS IN THE REST-FRAME]
 

@@ -40,7 +40,7 @@ cosmo = FLARE.default_cosmo()
 
 model.create_Fnu_grid(F, z, cosmo) # --- create new Fnu grid for each filter. In units of nJy/M_sol
 
-Fnu = models.generate_Fnu(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, F) # --- calculate rest-frame flux of each object in nJy
+Fnu = models.generate_Fnu(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, F, fesc = 0.0) # --- calculate rest-frame flux of each object in nJy
 
 for f in F['filters']:
     print(f, Fnu[f]) 
