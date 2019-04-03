@@ -11,7 +11,10 @@ import FLARE
 import FLARE.filters
 import SynthObs
 from SynthObs.SED import models
-import SynthObs.Morph 
+
+import SynthObs.Morph.images
+import SynthObs.Morph.PSF
+ 
 from SynthObs.Morph import measure 
 
 
@@ -33,7 +36,7 @@ z = 8.
 
 F = FLARE.filters.add_filters(filters, new_lam = model.lam * (1.+z)) 
 
-PSFs = SynthObs.Morph.euclidPSFs(F['filters']) # creates a dictionary of instances of the webbPSF class
+PSFs = SynthObs.Morph.PSF.Euclid(F['filters']) # creates a dictionary of instances of the webbPSF class
 
 
 
@@ -43,8 +46,10 @@ test = SynthObs.test_data() # --- read in some test data
 
 Fnu = {f: models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, F, f) for f in filters} # arrays of star particle fluxes in nJy
 
+img = SynthObs.Morph.images.observed(test.X, test.Y, Fnu, filters, cosmo, redshift = 8., width = width, smoothed = True, PSFs = PSFs)
 
-img = SynthObs.Morph.observed_images(test.X, test.Y, Fnu, filters, cosmo, redshift = 8., width = width, smoothed = True, show = False, PSFs = PSFs)
+
+# --- without PSF
 
 fig, axes = plt.subplots(1, len(filters), figsize = (len(filters)*2., 2))
 
@@ -52,16 +57,36 @@ fig.subplots_adjust(left=0.0, bottom=0.0, right=1.0, top=1.0, wspace=0.0, hspace
 
 for ax, f in zip(axes.flatten(), filters):
     
-    ax.imshow(img[f].psf_img)
+    ax.imshow(img[f].data_simple)
     
-    print(f, np.sum(img[f].img)) # total flux in nJy
+    print(f, np.sum(img[f].data_simple)) # total flux in nJy
     
     ax.get_xaxis().set_ticks([])
     ax.get_yaxis().set_ticks([])
     ax.text(0.5, 0.85, f.split('.')[-1], fontsize = 15, color='1.0', alpha = 0.3, horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
 
 
-plt.savefig('euclid.pdf')
+# plt.savefig('euclid.pdf')
+plt.show()
+
+# --- with PSF
+
+fig, axes = plt.subplots(1, len(filters), figsize = (len(filters)*2., 2))
+
+fig.subplots_adjust(left=0.0, bottom=0.0, right=1.0, top=1.0, wspace=0.0, hspace=0.0)
+
+for ax, f in zip(axes.flatten(), filters):
+    
+    ax.imshow(img[f].data)
+    
+    print(f, np.sum(img[f].data)) # total flux in nJy
+    
+    ax.get_xaxis().set_ticks([])
+    ax.get_yaxis().set_ticks([])
+    ax.text(0.5, 0.85, f.split('.')[-1], fontsize = 15, color='1.0', alpha = 0.3, horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
+
+
+# plt.savefig('euclid.pdf')
 plt.show()
 
 

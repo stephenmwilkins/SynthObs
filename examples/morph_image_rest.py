@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 import FLARE.filters
 import SynthObs
-import SynthObs.Morph 
+import SynthObs.Morph.images 
 from SynthObs.SED import models
 from SynthObs.Morph import measure 
 
@@ -49,18 +49,18 @@ L.update({'intrinsic_'+f: models.generate_Lnu_array(intrinsic_model, test.Masses
 
 # ------ Make rest-frame luminosity image
 
-IMGs = SynthObs.Morph.physical_images(test.X, test.Y, L, L.keys(), Ndim = Ndim)
+IMGs = SynthObs.Morph.images.physical(test.X, test.Y, L, L.keys(), Ndim = Ndim)
 
 
 fig, axes = plt.subplots(2, len(filters), figsize = (len(filters)*2., 4))
 fig.subplots_adjust(left=0.0, bottom=0.0, right=1.0, top=1.0, wspace=0.0, hspace=0.0)
 
-mx = np.max([np.max(IMGs[f].img) for f in filters])
-mx_intrinsic = np.max([np.max(IMGs['intrinsic_'+f].img) for f in filters])
+mx = np.max([np.max(IMGs[f].data) for f in filters])
+mx_intrinsic = np.max([np.max(IMGs['intrinsic_'+f].data) for f in filters])
 
 for i, f in enumerate(filters):
    
-    axes[0,i].imshow(IMGs[f].img, vmin = 0.0, vmax = mx)  
+    axes[0,i].imshow(IMGs[f].data, vmin = 0.0, vmax = mx)  
     axes[0,i].get_xaxis().set_ticks([])
     axes[0,i].get_yaxis().set_ticks([])
 
@@ -82,11 +82,11 @@ for i, f in enumerate(filters):
 #     axes[1,i].imshow(img)  
     
     
-    axes[1,i].imshow(IMGs['intrinsic_'+f].img, vmin = 0.0, vmax = mx_intrinsic)  
+    axes[1,i].imshow(IMGs['intrinsic_'+f].data, vmin = 0.0, vmax = mx_intrinsic)  
     axes[1,i].get_xaxis().set_ticks([])
     axes[1,i].get_yaxis().set_ticks([])
    
-    print(f, np.sum(IMGs['intrinsic_'+f].img), np.sum(IMGs[f].img))
+    print(f, np.sum(IMGs['intrinsic_'+f].data), np.sum(IMGs[f].data))
     
     
     # --- add labels and guide lines
@@ -111,11 +111,11 @@ for i, f in enumerate(filters):
     axes[1,i].axhline(Ndim/2.+0.5, c='1.0', lw=1, alpha = 0.2)
     axes[1,i].axvline(Ndim/2.+0.5, c='1.0', lw=1, alpha = 0.2)
 
-    info = r'$\rm log_{{10}}(L_{{\nu}}/erg\ s^{{-1}}\ Hz^{{-1}})={0:9.1f}$'.format(np.log10(np.sum(IMGs[f].img)))
+    info = r'$\rm log_{{10}}(L_{{\nu}}/erg\ s^{{-1}}\ Hz^{{-1}})={0:9.1f}$'.format(np.log10(np.sum(IMGs[f].data)))
 
     axes[0,i].text(0.5, 0.1, info, fontsize = 7, color='1.0', alpha = 1.0, horizontalalignment='center', verticalalignment='center', transform=axes[0,i].transAxes)
 
-    info = r'$\rm log_{{10}}(L_{{\nu}}/erg\ s^{{-1}}\ Hz^{{-1}})={0:9.1f}$'.format(np.log10(np.sum(IMGs['intrinsic_'+f].img)))
+    info = r'$\rm log_{{10}}(L_{{\nu}}/erg\ s^{{-1}}\ Hz^{{-1}})={0:9.1f}$'.format(np.log10(np.sum(IMGs['intrinsic_'+f].data)))
 
     axes[1,i].text(0.5, 0.1, info, fontsize = 7, color='1.0', alpha = 1.0, horizontalalignment='center', verticalalignment='center', transform=axes[1,i].transAxes)
 
@@ -130,10 +130,10 @@ plt.show()
 
 
 
-RGB = np.zeros((IMGs['FAKE.FAKE.1500'].img.shape[0],IMGs['FAKE.FAKE.1500'].img.shape[1], 3), dtype=float)
-RGB[:,:,2] = IMGs['FAKE.FAKE.1500'].img/mx
-RGB[:,:,1] = IMGs['FAKE.FAKE.Vth'].img/mx
-RGB[:,:,0] = IMGs['FAKE.FAKE.Hth'].img/mx
+RGB = np.zeros((IMGs['FAKE.FAKE.1500'].data.shape[0],IMGs['FAKE.FAKE.1500'].data.shape[1], 3), dtype=float)
+RGB[:,:,2] = IMGs['FAKE.FAKE.1500'].data/mx
+RGB[:,:,1] = IMGs['FAKE.FAKE.Vth'].data/mx
+RGB[:,:,0] = IMGs['FAKE.FAKE.Hth'].data/mx
 
 
 

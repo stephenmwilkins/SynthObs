@@ -5,11 +5,9 @@ from astropy.io import fits
 from ..core import * 
 import FLARE.filters 
 
+import webbpsf
 
-
-def webbPSFs(filters, width, resampling_factor=1):
-
-    import webbpsf
+def Webb(filters, width, resampling_factor=1):
 
     return {f: webbPSF(f, width, resampling_factor) for f in filters}
 
@@ -52,7 +50,7 @@ class webbPSF():
 
 
 
-def euclidPSFs(filters):
+def Euclid(filters):
 
     return {f: euclidPSF(f) for f in filters}
 

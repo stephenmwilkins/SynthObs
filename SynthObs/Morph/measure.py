@@ -86,7 +86,7 @@ class intrinsic():
         
         self.profile = False
         
-        self.total = np.sum(self.img.img)
+        self.total = np.sum(self.img.data)
 
     def detect_sources(self, threshold = False, npixels = 10):
 
@@ -94,11 +94,11 @@ class intrinsic():
     
             # threshold = np.min(self.img[self.img>0])
         
-            threshold = np.sum(self.img.img)/1000.
+            threshold = np.sum(self.img.data)/1000.
         
-        self.segm = detect_sources(self.img.img, threshold, npixels = npixels)
+        self.segm = detect_sources(self.img.data, threshold, npixels = npixels)
     
-        self.cat = source_properties(self.img.img, self.segm)
+        self.cat = source_properties(self.img.data, self.segm)
     
 #         for i, o in enumerate(self.cat):
 #             print(i, o.centroid, o.source_sum/np.sum(self.img.img))
@@ -111,7 +111,7 @@ class intrinsic():
         radii = np.arange(dr, self.img.width/self.img.resolution, dr) # in pixels
         positions = [self.cat[objid].centroid] # centre
         apertures = [CircularAperture(positions, r=r) for r in radii] #r in pixels
-        phot_table = aperture_photometry(self.img.img, apertures) 
+        phot_table = aperture_photometry(self.img.data, apertures) 
     
         self.profile = {'r_pix': radii, 'r_kpc': radii*self.img.resolution, 'I': np.array([float(phot_table[0][j+3]) for j in range(len(radii))])}
         
@@ -131,7 +131,7 @@ class intrinsic():
     
     def rpix(self): # --- measure r_e sing the pixel method
     
-        sortpix = np.array(sorted(self.img.img.flatten())[::-1])
+        sortpix = np.array(sorted(self.img.data.flatten())[::-1])
         cumsum = np.cumsum(sortpix)/sum(sortpix)
         npix = len(cumsum[cumsum<0.5])
         area = npix*(self.img.resolution)**2

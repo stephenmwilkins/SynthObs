@@ -15,7 +15,7 @@ from FLARE.SED import IGM
 
 class define_model():
 
-    def __init__(self, grid, path_to_SPS_grid = FLARE_dir + 'data/SPS/nebular/1.0/Z/', dust = False):
+    def __init__(self, grid, path_to_SPS_grid = FLARE_dir + '/data/SPS/nebular/1.0/Z/', dust = False):
     
         self.grid = pickle.load(open(path_to_SPS_grid + grid + '/nebular.p','rb'), encoding='latin1')
 

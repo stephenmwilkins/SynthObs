@@ -10,7 +10,7 @@ FLARE_dir = FLARE.FLARE_dir
 class empty: pass 
 
 
-def test_data(path_to_example_data = FLARE_dir + 'data/package_example_data/SynthObs/'):
+def test_data(path_to_example_data = FLARE_dir + '/data/package_example_data/SynthObs/test'):
 
     data = empty()
     
