@@ -1,6 +1,7 @@
 
 import numpy as np
 from astropy.io import fits
+from scipy import interpolate
 
 from ..core import * 
 import FLARE.filters 
@@ -56,20 +57,17 @@ def Euclid(filters):
 
 class euclidPSF():
 
-    def __init__(self, f):
+    def __init__(self, f, scale = '300mas'):
     
-        # --- these are only 85 * 85 but that is large!
+        self.filter = f
     
-        if f.split('.')[-1]=='Y':
-    
-            fn = FLARE_dir + '/data/PSF/Euclid/Oesch/EUC_NISP_PSF-Y-SOLAR-AOCS-3632-SC3_20161212T220137.4Z_01.00.fits'
+        fn = FLARE_dir + '/data/PSF/Euclid/Oesch/{0}/Euclid_PSF_{1}_{0}.fits'.format(scale, f.split('.')[-1])   
         
-        else:
-        
-            fn = FLARE_dir + '/data/PSF/Euclid/Oesch/EUC_NISP_PSF-{0}-SOLAR-AOCS-3632-SC3_20161212T221037.4Z_01.00.fits'.format(f.split('.')[-1])   
-        
-        self.PSF = fits.open(fn)[0].data
+        self.data = fits.open(fn)[0].data
 
+        if scale == '300mas': x = y = np.arange(-self.data.shape[0]/2.+0.5, self.data.shape[0]/2., 1.)
+
+        self.f = interpolate.interp2d(x, y, self.data, kind='linear')
 
 
 # class gauss():

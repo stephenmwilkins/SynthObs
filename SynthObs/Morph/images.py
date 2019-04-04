@@ -114,14 +114,18 @@ class physical_individual():
 
 def observed(X, Y, fluxes, filters, cosmo, redshift=8, width=10., resampling_factor=1, smoothed=False, PSFs = None):
 
-    return {f: observed_individual(X, Y, fluxes[f], f, cosmo, redshift, width, resampling_factor, smoothed, PSFs[f]) for f in filters}
+    xoffset = np.random.random() - 0.5
+    yoffset = np.random.random() - 0.5
+
+
+    return {f: observed_individual(X, Y, fluxes[f], f, cosmo, redshift, width, resampling_factor, smoothed, PSFs[f], xoffset = xoffset, yoffset = yoffset) for f in filters}
     
 
 class observed_individual():
     """ A class for computing synthetic Webb observations. 
     """
     
-    def __init__(self, X, Y, flux, filter, cosmo, redshift=8, width=10., resampling_factor=1, smoothed=False, PSF = None):
+    def __init__(self, X, Y, flux, filter, cosmo, redshift=8, width=10., resampling_factor=1, smoothed=False, PSF = None, xoffset = 0.0, yoffset = 0.0):
         """
         :param X: Star Particle X position in kpc. [nStar]
         :param Y: Star Particle Y position in kpc. [nStar]
@@ -151,8 +155,8 @@ class observed_individual():
 
         # Define instance attributes
         # Centre star particle positions using the median as the centre *** NOTE: true centre could later be defined ***
-        self.X = X - np.median(X)
-        self.Y = Y - np.median(Y)
+        self.X = X - np.median(X) + xoffset # offset's are necessary so that the object doesn't in the middle of a pixel
+        self.Y = Y - np.median(Y) + yoffset # offset's are necessary so that the object doesn't in the middle of a pixel
         
         self.PSF = PSF # PSF object
 
@@ -162,6 +166,9 @@ class observed_individual():
         
         self.X_arcsec = self.X * self.arcsec_per_proper_kpc
         self.Y_arcsec = self.Y * self.arcsec_per_proper_kpc
+        
+        self.X_pix = self.X_arcsec/self.resolution
+        self.Y_pix = self.Y_arcsec/self.resolution
         
         self.cosmo = cosmo
 
@@ -196,7 +203,6 @@ class observed_individual():
         
         if self.PSF is not None:
 
-
             # --- THIS NEEDS RE-WRITING BY **WILL**   
 
             # astropy.convolve requires images have odd dimensions
@@ -204,8 +210,9 @@ class observed_individual():
             
             self.data_simple = self.simpleimg()
             
-            self.data = convolve_fft(self.data_simple, self.PSF.PSF) 
+            # self.data_old = convolve_fft(self.data_simple, self.PSF.data) 
         
+            self.data = self.smoothimg(self.PSF.f)
        
         else:
 
@@ -213,16 +220,12 @@ class observed_individual():
             # If smoothing is required compute the smoothed image for each filter
             if self.smoothed:
 
-                self.data = self.smoothimg()
+                self.data = self.smoothimg() # need to give it a smoothing function
 
             # If smoothing is not required compute the simple images
             else:
 
                 self.data = self.simpleimg()
-
-
-
-
 
         
     def simpleimg(self):
@@ -249,81 +252,32 @@ class observed_individual():
 
         return simple_img
 
-    def smoothimg(self):
+
+    def smoothimg(self, f):
         """ A method for creating images with gaussian smoothing applied to each star with either the distance to the
         7th nearest neighbour or 0.1 kpc used for the standard deviation of the gaussian.
 
-        :param F: The flux array for the current filter
+        :param f: a scipy 2D interpolator object
         :return: Image array
         """
 
         # =============== Compute the gaussian smoothed image ===============
 
-        # Define x and y positions for the gaussians
-        Gx, Gy = np.meshgrid(np.linspace(-self.width / 2., self.width / 2., self.Ndim),
-                             np.linspace(-self.width / 2., self.width / 2., self.Ndim))
+        image = np.zeros((self.Ndim, self.Ndim))
 
-        # Initialise the image array
-        gsmooth_img = np.zeros((self.Ndim, self.Ndim))
+        xx = yy = np.arange(-self.Ndim/2.+0.5, self.Ndim/2., 1.)
 
-        # Get the distances between all points using kdtree
-        # Build tree
-        tree = cKDTree(np.column_stack([self.X_arcsec, self.Y_arcsec]), leafsize=16, compact_nodes=True,
-                       copy_data=False, balanced_tree=True)
-
-        # Query tree for all particle separations
-        nndists, nninds = tree.query(np.column_stack([self.X_arcsec, self.Y_arcsec]), k=7, n_jobs=-1)
-
-        # Define the miniimum smoothing for 0.1kpc in arcseconds
-        min_smooth = 0.1 * self.arcsec_per_proper_kpc
-
-        # Get the image pixel coordinates along each axis
-        ax_coords = np.linspace(-self.width / 2., self.width / 2., self.Ndim)
-
-        rs = np.max([nndists[:, -1], np.full_like(self.X_arcsec, min_smooth)], axis=0)
-
-        # Get the indices of stars with the minimum smoothing since these can be computed for a smaller sub image
-        where_inds = np.where(rs == min_smooth)[0]
-
-        # Loop over each star computing the smoothed gaussian distribution for this particle
-        for x, y, l, r in zip(self.X_arcsec[where_inds], self.Y_arcsec[where_inds], self.flux[where_inds], rs[where_inds]):
+        for x, y, l in zip(self.X_pix, self.Y_pix, self.flux):
 
             # Get this star's position within the image
-            x_img, y_img = (np.abs(ax_coords - x)).argmin(), (np.abs(ax_coords - y)).argmin()
+            
+            g = f(xx-x, yy-y)
+            
+            g /= np.sum(g)
+            
+            image += l * g
+            
+        return image
 
-            # Define sub image over which to compute the smooothing for this star (1/4 of the images size)
-            # NOTE: this drastically speeds up image creation
-            sub_xlow, sub_xhigh = x_img - int(self.Ndim / 8), x_img + int(self.Ndim / 8) + 1
-            sub_ylow, sub_yhigh = y_img - int(self.Ndim / 8), y_img + int(self.Ndim / 8) + 1
 
-            # Compute the image
-            g = np.exp(-(((Gx[sub_xlow:sub_xhigh, sub_ylow:sub_yhigh] - x) ** 2
-                          + (Gy[sub_xlow:sub_xhigh, sub_ylow:sub_yhigh] - y) ** 2)
-                         / (2.0 * r ** 2)))
-
-            # Get the sum of the gaussian
-            gsum = np.sum(g)
-
-            # If there are stars within the image in this gaussian add it to the image array
-            if gsum > 0:
-                gsmooth_img[sub_xlow:sub_xhigh, sub_ylow:sub_yhigh] += g * l / gsum
-
-        # Get the indices of stars with greater than the minimum smoothing since these need
-        # to be computed over the full image to account for the increased smoothing
-        where_inds = np.where(rs != min_smooth)[0]
-
-        # Loop over each star computing the smoothed gaussian distribution for this particle
-        for x, y, l, r in zip(self.X_arcsec[where_inds], self.Y_arcsec[where_inds], self.flux[where_inds], rs[where_inds]):
-
-            # Compute the image
-            g = np.exp(-(((Gx - x) ** 2 + (Gy - y) ** 2) / (2.0 * r ** 2)))
-
-            # Get the sum of the gaussian
-            gsum = np.sum(g)
-
-            # If there are stars within the image in this gaussian add it to the image array
-            if gsum > 0:
-                gsmooth_img += g * l / gsum
-
-        return gsmooth_img
 
