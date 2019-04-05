@@ -143,52 +143,41 @@ class observed_individual():
 
         self.warnings = []
 
-        if filter in FLARE.filters.NIRCam_l: 
-            self.resolution = 0.063
-        elif filter in FLARE.filters.NIRCam_s: 
-            self.resolution = 0.031
-        elif filter in FLARE.filters.Euclid:
-            self.resolution = 0.30
-        else:
-            print('filter not found')
+        self.base_pixel_scale = FLARE.filters.pixel_scale[filter]
+
+        self.width = width # target width in " 
+        self.resampling_factor = resampling_factor
+        self.pixel_scale = self.base_pixel_scale / resampling_factor # the actual resolution 
+        self.Ndim = round(self.width / self.pixel_scale)
+        self.actual_width = self.Ndim *  self.pixel_scale # actual width "
+        self.PSF = PSF # PSF object
+
 
 
         # Define instance attributes
         # Centre star particle positions using the median as the centre *** NOTE: true centre could later be defined ***
-        self.X = X - np.median(X) + xoffset # offset's are necessary so that the object doesn't in the middle of a pixel
-        self.Y = Y - np.median(Y) + yoffset # offset's are necessary so that the object doesn't in the middle of a pixel
+        self.X = X - np.median(X) 
+        self.Y = Y - np.median(Y) 
         
-        self.PSF = PSF # PSF object
-
         # Compute angular star particle positions in arcseconds
+        
+        # self.cosmo = cosmo
         
         self.arcsec_per_proper_kpc = cosmo.arcsec_per_kpc_proper(redshift).value
         
         self.X_arcsec = self.X * self.arcsec_per_proper_kpc
         self.Y_arcsec = self.Y * self.arcsec_per_proper_kpc
         
-        self.X_pix = self.X_arcsec/self.resolution
-        self.Y_pix = self.Y_arcsec/self.resolution
+        self.X_pix = self.X_arcsec/self.pixel_scale + xoffset # offset's are necessary so that the object doesn't in the middle of a pixel
+        self.Y_pix = self.Y_arcsec/self.pixel_scale + yoffset # offset's are necessary so that the object doesn't in the middle of a pixel
         
-        self.cosmo = cosmo
-
+        
         inst = filter.split('.')[1]
         f = filter.split('.')[-1]
         
-        self.resampling_factor = resampling_factor
-        self.base_pixel_scale = self.resolution  # pre-resample resolution
-        self.pixel_scale = self.base_pixel_scale / self.resampling_factor  # the final image pixel scale
+
         self.smoothed = smoothed
 
-        # Ndim must odd for convolution with the PSF
-        ini_Ndim = int(width / self.resolution)
-        if ini_Ndim % 2 != 0:
-            self.Ndim = int(width / self.resolution)
-        else:
-            self.Ndim = int(width / self.resolution) + 1
-
-
-        self.width = self.Ndim * self.pixel_scale  # width along each axis image in arcseconds
         self.flux = flux
 
        
@@ -196,7 +185,7 @@ class observed_individual():
         pos_range = [np.max(X) - np.min(X), np.max(Y) - np.min(Y)]
 
         # If star particles extend beyond the image print a warning
-        if any(x > self.Ndim * self.pixel_scale for x in pos_range): self.warnings.append('Warning particles will extend beyond image limits')
+        if any(x > self.actual_width for x in pos_range): self.warnings.append('Warning particles will extend beyond image limits')
 
 
         # --- there are now 3 possible options
@@ -206,12 +195,8 @@ class observed_individual():
             # --- THIS NEEDS RE-WRITING BY **WILL**   
 
             # astropy.convolve requires images have odd dimensions
-            assert self.Ndim % 2 != 0, 'Image must have odd dimensions (Ndim must be odd)'  
             
             self.data_simple = self.simpleimg()
-            
-            # self.data_old = convolve_fft(self.data_simple, self.PSF.data) 
-        
             self.data = self.smoothimg(self.PSF.f)
        
         else:
@@ -265,13 +250,13 @@ class observed_individual():
 
         image = np.zeros((self.Ndim, self.Ndim))
 
-        xx = yy = np.arange(-self.Ndim/2.+0.5, self.Ndim/2., 1.)
+        xx = yy = np.arange(-self.Ndim/2.+0.5, self.Ndim/2., 1.)  # in original pixels
 
         for x, y, l in zip(self.X_pix, self.Y_pix, self.flux):
 
             # Get this star's position within the image
             
-            g = f(xx-x, yy-y)
+            g = f((xx-x)/self.resampling_factor, (yy-y)/self.resampling_factor)
             
             g /= np.sum(g)
             

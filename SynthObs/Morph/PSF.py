@@ -6,56 +6,62 @@ from scipy import interpolate
 from ..core import * 
 import FLARE.filters 
 
-import webbpsf
 
-def Webb(filters, width, resampling_factor=1):
 
-    return {f: webbPSF(f, width, resampling_factor) for f in filters}
+def Webb(filters, resampling_factor = 5):
+
+    return {f: WebbPSF(f, resampling_factor) for f in filters}
+
+ 
+class WebbPSF():
+
+    def __init__(self, f, resampling_factor = 5):
+    
+        self.filter = f
+        self.inst = f.split('.')[1]
+    
+        fn = FLARE_dir + '/data/PSF/Webb/{1}/{0}/{2}.fits'.format(resampling_factor, self.inst, f.split('.')[-1])   
+        
+        self.data = fits.open(fn)[0].data
+
+        Ndim = self.data.shape[0]
+
+        x = y = np.linspace(-(Ndim/2.)/resampling_factor, (Ndim/2.)/resampling_factor, Ndim)
+
+        self.f = interpolate.interp2d(x, y, self.data, kind='linear')
+ 
 
      
-class webbPSF():
+def Hubble(filters):
 
-    """ A class for extracting and storing point spread functions (PSFs) for the Webb Space
-    Telescope using WebbPSF (STScI: https://webbpsf.readthedocs.io/en/stable/index.html).
-    """
+    return {f: HubblePSF(f) for f in filters}
 
-    def __init__(self, filter, width, resampling_factor=1):
-        """
-        :param f: tje filter of the form JWST.NIRCam.XXX or JWST.MIRI.XXX
-        :param width: Width of the image along a single axis (this is approximate since images must be odd in dimension)
-        :param resampling_factor: The integer amount of resampling done to increase resolution. (int)
-        :param gaussFWHM: If a simple gaussian PSF is required the FWHM of that PSF in arcseconds. (float)
-        """
+ 
+class HubblePSF():
+
+    def __init__(self, f):
+    
+        self.filter = f
+        self.inst = f.split('.')[1]
+    
+        fn = FLARE_dir + '/data/PSF/Hubble/{0}/PSFSTD_WFC3IR_{1}.fits'.format(self.inst, f.split('.')[-1].upper())   
         
-        inst = filter.split('.')[1]
-        f = filter.split('.')[-1]
-        
-        if filter in FLARE.filters.NIRCam_l: 
-            self.resolution = 0.063
-        elif filter in FLARE.filters.NIRCam_s: 
-            self.resolution = 0.031
-        else:
-            print('filter not found', filter)
+        self.data = fits.open(fn)[0].data[0]
 
-        # Ndim must odd for convolution with the PSF
-        ini_Ndim = int(width / self.resolution)
-        if ini_Ndim % 2 != 0:
-            self.Ndim = int(width / self.resolution)
-        else:
-            self.Ndim = int(width / self.resolution) + 1
+        Ndim = self.data.shape[0]
 
-        if inst == 'NIRCAM':  nc = webbpsf.NIRCam()
+        x = y = np.linspace(-12.5, 12.5, Ndim) # Hubble PSFs are oversampled
 
-        nc.filter = f
-        self.PSF = nc.calc_psf(oversample=resampling_factor, fov_pixels=self.Ndim)[0].data  # compute PSF
+        self.f = interpolate.interp2d(x, y, self.data, kind='linear')
+
 
 
 
 def Euclid(filters):
 
-    return {f: euclidPSF(f) for f in filters}
+    return {f: EuclidPSF(f) for f in filters}
 
-class euclidPSF():
+class EuclidPSF():
 
     def __init__(self, f, scale = '300mas'):
     

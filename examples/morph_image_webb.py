@@ -28,6 +28,11 @@ model.dust = {'A': 5.2, 'slope': -1.0} # DEFINE DUST MODEL - these are the calib
 
 filters = FLARE.filters.NIRCam_W[3:]
 
+filters = FLARE.filters.NIRCam_W[0:2]
+
+
+filters = ['JWST.NIRCAM.F070W', 'JWST.NIRCAM.F200W', 'JWST.NIRCAM.F277W', 'JWST.NIRCAM.F444W', 'JWST.MIRI.F560W', 'JWST.MIRI.F560W','JWST.MIRI.F2550W']
+
 
 
 print(filters)
@@ -37,7 +42,7 @@ z = 8.
 
 F = FLARE.filters.add_filters(filters, new_lam = model.lam * (1.+z)) 
 
-PSFs = SynthObs.Morph.PSF.Webb(F['filters'], width) # creates a dictionary of instances of the webbPSF class
+PSFs = SynthObs.Morph.PSF.Webb(F['filters']) # creates a dictionary of instances of the webbPSF class
 
 
 
@@ -51,24 +56,6 @@ Fnu = {f: models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallic
 img = SynthObs.Morph.images.observed(test.X, test.Y, Fnu, filters, cosmo, redshift = 8., width = width, PSFs = PSFs)
 
 
-fig, axes = plt.subplots(1, len(filters), figsize = (len(filters)*2., 2))
-
-fig.subplots_adjust(left=0.0, bottom=0.0, right=1.0, top=1.0, wspace=0.0, hspace=0.0)
-
-for ax, f in zip(axes.flatten(), filters):
-    
-    ax.imshow(img[f].data_simple)
-    
-    print(f, np.sum(img[f].data_simple)) # total flux in nJy
-    
-    ax.get_xaxis().set_ticks([])
-    ax.get_yaxis().set_ticks([])
-    ax.text(0.5, 0.85, f.split('.')[-1], fontsize = 15, color='1.0', alpha = 0.3, horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
-
-# plt.savefig('webb.pdf')
-plt.show()
-fig.clf()
-
 
 fig, axes = plt.subplots(1, len(filters), figsize = (len(filters)*2., 2))
 
@@ -76,7 +63,7 @@ fig.subplots_adjust(left=0.0, bottom=0.0, right=1.0, top=1.0, wspace=0.0, hspace
 
 for ax, f in zip(axes.flatten(), filters):
     
-    ax.imshow(img[f].data)
+    ax.imshow(img[f].data, interpolation = 'nearest')
     
     print(f, np.sum(img[f].data)) # total flux in nJy
     
@@ -84,7 +71,7 @@ for ax, f in zip(axes.flatten(), filters):
     ax.get_yaxis().set_ticks([])
     ax.text(0.5, 0.85, f.split('.')[-1], fontsize = 15, color='1.0', alpha = 0.3, horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
 
-# plt.savefig('webb.pdf')
+plt.savefig('f/webb.pdf', dpi = img[f].data.shape[0]*2)
 plt.show()
 fig.clf()
 
