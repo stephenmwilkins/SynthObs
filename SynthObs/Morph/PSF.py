@@ -71,7 +71,12 @@ class EuclidPSF():
         
         self.data = fits.open(fn)[0].data
 
+        self.data /= np.sum(self.data)
+
+        Ndim = self.data.shape[0]
+
         if scale == '300mas': x = y = np.arange(-self.data.shape[0]/2.+0.5, self.data.shape[0]/2., 1.)
+        if scale == '50mas': x = y = np.linspace(-Ndim/12., Ndim/12., Ndim)
 
         self.f = interpolate.interp2d(x, y, self.data, kind='linear')
 
