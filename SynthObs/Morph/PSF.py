@@ -6,6 +6,22 @@ from scipy import interpolate
 from ..core import * 
 import FLARE.filters 
 
+from astropy.convolution import convolve, convolve_fft, Gaussian2DKernel
+
+
+
+def PSF(filters):
+
+    psf = {}
+    
+    for f in filters:
+    
+        if f.split('.')[0] == 'HST': psf[f] = HubblePSF(f)
+        if f.split('.')[0] == 'JWST': psf[f] = WebbPSF(f)
+        if f.split('.')[0] == 'Euclid': psf[f] = EuclidPSF(f)
+        if f.split('.')[0] == 'Spitzer': psf[f] = SpitzerPSF(f)
+    
+    return psf
 
 
 def Webb(filters, resampling_factor = 5):
@@ -28,7 +44,7 @@ class WebbPSF():
 
         x = y = np.linspace(-(Ndim/2.)/resampling_factor, (Ndim/2.)/resampling_factor, Ndim)
 
-        self.f = interpolate.interp2d(x, y, self.data, kind='linear')
+        self.f = interpolate.interp2d(x, y, self.data, kind='linear', fill_value = 0.0)
  
 
      
@@ -37,33 +53,47 @@ def Hubble(filters):
     return {f: HubblePSF(f) for f in filters}
 
  
+ 
 class HubblePSF():
 
     def __init__(self, f):
     
         self.filter = f
-        self.inst = f.split('.')[1]
     
-        fn = FLARE_dir + '/data/PSF/Hubble/{0}/PSFSTD_WFC3IR_{1}.fits'.format(self.inst, f.split('.')[-1].upper())   
+        fn = FLARE_dir + '/data/PSF/Hubble/TinyTim/{0}00.fits'.format(f.split('.')[-1])   
         
-        self.data = fits.open(fn)[0].data[0]
+        self.data = fits.open(fn)[0].data[1:,1:]
 
-        Ndim = self.data.shape[0]
+        self.data /= np.sum(self.data)
 
-        x = y = np.linspace(-12.5, 12.5, Ndim) # Hubble PSFs are oversampled
+        charge_diffusion_kernel = np.array([[0.002, 0.038, 0.002],[0.038, 0.840, 0.038],[0.002, 0.038, 0.002]]) # pixels?
+        
+        x = y = np.linspace(-1, 1, 3) # in original pixels
+        
+        f_charge_diffusion_kernel= interpolate.interp2d(x, y, charge_diffusion_kernel, kind='linear', fill_value = 0.0)
+        
+        x = y = np.linspace(-3, 3, 61) 
 
-        self.f = interpolate.interp2d(x, y, self.data, kind='linear')
+        resampled_charge_diffusion_kernel = f_charge_diffusion_kernel(x,y)
+
+        self.convolved_data = convolve(self.data, resampled_charge_diffusion_kernel)
+
+        Ndim = self.convolved_data.shape[0]
+
+        x = y = np.linspace(-(Ndim/2.)/10, (Ndim/2.)/10, Ndim) # in original pixels
+
+        self.f = interpolate.interp2d(x, y, self.convolved_data, kind='linear', fill_value = 0.0)
 
 
-
-
+ 
+ 
 def Euclid(filters):
 
     return {f: EuclidPSF(f) for f in filters}
 
 class EuclidPSF():
 
-    def __init__(self, f, scale = '300mas'):
+    def __init__(self, f, scale = '50mas'):
     
         self.filter = f
     
@@ -78,7 +108,34 @@ class EuclidPSF():
         if scale == '300mas': x = y = np.arange(-self.data.shape[0]/2.+0.5, self.data.shape[0]/2., 1.)
         if scale == '50mas': x = y = np.linspace(-Ndim/12., Ndim/12., Ndim)
 
-        self.f = interpolate.interp2d(x, y, self.data, kind='linear')
+        self.f = interpolate.interp2d(x, y, self.data, kind='linear', fill_value = 0.0)
+
+
+class SpitzerPSF():
+
+    def __init__(self, f):
+    
+        self.filter = f
+    
+        if f.split('.')[-1] == 'ch1': self.FWHM = 1.66 # " (1.95 for warm)
+        if f.split('.')[-1] == 'ch2': self.FWHM = 1.72 # " (2.02 for warm)
+        
+        self.FWHM /= 1.22 # in native pixels
+
+    def f(self, x, y):
+    
+        xx, yy = np.meshgrid(x, y)
+
+        return np.exp(-4*np.log(2) * (xx**2 + yy**2) / self.FWHM**2)
+
+
+
+
+
+
+
+
+
 
 
 # class gauss():

@@ -3,6 +3,6 @@
 from .core import *
 
 
-version = '0.1.0' # 25/2/2019
+__version__ = '0.1.1'
 
 __all__ = ['core', 'Morph', 'SED']
