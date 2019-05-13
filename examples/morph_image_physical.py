@@ -11,9 +11,14 @@ import SynthObs
 import SynthObs.Morph.images  
 
 
-
-
-
+redshift = 8.
+h = 0.697
+resolution = 0.1
+Ndim = 50
+smoothing = 'gaussian'
+# smoothing = False
+smoothing_length = (1.5/h)/(1.+redshift)
+# smoothing_length = 0.1
 
 
 
@@ -23,42 +28,41 @@ test = SynthObs.test_data() # --- read in some test data
 
 # ------ high-resolution image
 
-highres = SynthObs.Morph.images.physical_individual(test.X, test.Y, test.Masses, resolution = 0.05, Ndim = 100, smoothing = 'adaptive')
-plt.imshow(highres.data)
-plt.show()
+# highres = SynthObs.Morph.images.physical_individual(test.X, test.Y, test.Masses, resolution = 0.05, Ndim = Ndim, smoothing = smoothing, smoothing_length = smoothing_length)
+# plt.imshow(highres.data)
+# plt.show()
 
 
 # ------ compare adaptive and simple smoothing
 
-adaptive = SynthObs.Morph.images.physical_individual(test.X, test.Y, test.Masses, Ndim = 50, smoothing = 'adaptive')
-simple = SynthObs.Morph.images.physical_individual(test.X, test.Y, test.Masses, Ndim = 50)
-
-print(np.sum(adaptive.data), np.sum(simple.data))
-
-R = adaptive.data-simple.data
-
-print(np.max(R)/np.max(simple.data))
-
-plt.imshow(adaptive.data)
-plt.show()
-plt.imshow(simple.data)
-plt.show()
-plt.imshow(R)
-plt.show()
+# adaptive = SynthObs.Morph.images.physical_individual(test.X, test.Y, test.Masses, Ndim = 50, smoothing = 'adaptive')
+# simple = SynthObs.Morph.images.physical_individual(test.X, test.Y, test.Masses, Ndim = 50)
+# 
+# print(np.sum(adaptive.data), np.sum(simple.data))
+# 
+# R = adaptive.data-simple.data
+# 
+# print(np.max(R)/np.max(simple.data))
+# 
+# plt.imshow(adaptive.data)
+# plt.show()
+# plt.imshow(simple.data)
+# plt.show()
+# plt.imshow(R)
+# plt.show()
 
 
 
 
 # ------ Make stellar mass vs. recent SF comparison
 
-Ndim = 70
 
 imgs = {}
 
-imgs['mass'] = SynthObs.Morph.images.physical_individual(test.X, test.Y, test.Masses, Ndim = Ndim)
+imgs['mass'] = SynthObs.Morph.images.physical_individual(test.X, test.Y, test.Masses, resolution = resolution, Ndim = Ndim, smoothing = smoothing, smoothing_length = smoothing_length)
 
 s = test.Ages<10.
-imgs['sfr'] = SynthObs.Morph.images.physical_individual(test.X[s], test.Y[s], test.Masses[s], Ndim = Ndim)
+imgs['sfr'] = SynthObs.Morph.images.physical_individual(test.X[s], test.Y[s], test.Masses[s], resolution = resolution, Ndim = Ndim, smoothing = smoothing, smoothing_length = smoothing_length)
 
 N = len(imgs.keys())
 fig, axes = plt.subplots(1, N, figsize = (N*2., 2))

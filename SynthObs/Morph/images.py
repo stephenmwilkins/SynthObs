@@ -11,14 +11,14 @@ import FLARE.filters
 
 
 
-def physical(X, Y, luminosities, filters, resolution = 0.1, Ndim = 100, smoothing = 'simple'):
+def physical(X, Y, luminosities, filters, resolution = 0.1, Ndim = 100, smoothing = False, smoothing_length = False):
 
-    return {f: physical_individual(X, Y, luminosities[f], resolution = resolution, Ndim = Ndim, smoothing = smoothing) for f in filters}
+    return {f: physical_individual(X, Y, luminosities[f], resolution = resolution, Ndim = Ndim, smoothing = smoothing, smoothing_length = smoothing_length) for f in filters}
     
 
 class physical_individual():
 
-    def __init__(self, X, Y, L, resolution = 0.1, Ndim = 100, smoothing = 'simple'):
+    def __init__(self, X, Y, L, resolution = 0.1, Ndim = 100, smoothing = False, smoothing_length = False):
 
         self.warnings = []
 
@@ -50,11 +50,11 @@ class physical_individual():
         Y = Y[sel]
         L = L[sel]
 
-        if self.smoothing == 'simple':
+        if self.smoothing == 'gaussian':
         
             Gx, Gy = np.meshgrid(np.linspace(-(self.width+self.resolution)/2., (self.width+self.resolution)/2., Ndim+1), np.linspace(-(self.width+self.resolution)/2., (self.width+self.resolution)/2., Ndim+1))
         
-            r = 0.1
+            r = smoothing_length
             gauss = np.exp(-((Gx**2 + Gy**2)/ ( 2.0 * r**2 ) ) )  
             gauss /= np.sum(gauss)
             
@@ -88,7 +88,8 @@ class physical_individual():
 
                 if sgauss > 0: self.data += l*gauss/sgauss
 
-        else:
+
+        elif self.smoothing == False:
              
             g = np.linspace(-self.width/2.,self.width/2.,Ndim)
         
