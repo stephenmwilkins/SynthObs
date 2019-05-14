@@ -11,14 +11,14 @@ import FLARE.filters
 
 
 
-def physical(X, Y, luminosities, filters, resolution = 0.1, Ndim = 100, smoothing = False, smoothing_length = False):
+def physical(X, Y, luminosities, filters, resolution = 0.1, Ndim = 100, smoothing = False, smoothing_parameter = False):
 
-    return {f: physical_individual(X, Y, luminosities[f], resolution = resolution, Ndim = Ndim, smoothing = smoothing, smoothing_length = smoothing_length) for f in filters}
+    return {f: physical_individual(X, Y, luminosities[f], resolution = resolution, Ndim = Ndim, smoothing = smoothing, smoothing_parameter = smoothing_parameter) for f in filters}
     
 
 class physical_individual():
 
-    def __init__(self, X, Y, L, resolution = 0.1, Ndim = 100, smoothing = False, smoothing_length = False):
+    def __init__(self, X, Y, L, resolution = 0.1, Ndim = 100, smoothing = False, smoothing_parameter = False):
 
         self.warnings = []
 
@@ -28,6 +28,7 @@ class physical_individual():
 
         # Boolean = Whether to apply gaussian smoothing to star particles
         self.smoothing = smoothing
+        self.smoothing_parameter = smoothing_parameter
 
         # Image properties
         self.Ndim = Ndim
@@ -38,7 +39,7 @@ class physical_individual():
 
         if any(x>Ndim*resolution for x in range): self.warnings.append('Warning particles will extend beyond image limits')
 
-        
+                
 
         self.data = np.zeros((self.Ndim, self.Ndim))
 
@@ -54,8 +55,9 @@ class physical_individual():
         
             Gx, Gy = np.meshgrid(np.linspace(-(self.width+self.resolution)/2., (self.width+self.resolution)/2., Ndim+1), np.linspace(-(self.width+self.resolution)/2., (self.width+self.resolution)/2., Ndim+1))
         
-            r = smoothing_length
-            gauss = np.exp(-((Gx**2 + Gy**2)/ ( 2.0 * r**2 ) ) )  
+            sigma = self.smoothing_parameter/2.355
+            
+            gauss = np.exp(-((Gx**2 + Gy**2)/ ( 2.0 * sigma**2 ) ) )  
             gauss /= np.sum(gauss)
             
             g = np.linspace(-self.width/2.,self.width/2.,Ndim)
@@ -76,13 +78,15 @@ class physical_individual():
 
             tree = cKDTree(np.column_stack([X, Y]), leafsize=16, compact_nodes=True, copy_data=False, balanced_tree=True)
 
-            nndists, nninds = tree.query(np.column_stack([X, Y]), k=7, n_jobs=-1) # k = nth nearest neighbour
+            nndists, nninds = tree.query(np.column_stack([X, Y]), k=self.smoothing_parameter, n_jobs=-1) # k = nth nearest neighbour
         
             for x,y,l,nndist in zip(X, Y, L, nndists):
     
-                r = np.max([nndist[-1], self.resolution])
+                FWHM = np.max([nndist[-1], self.resolution])
                 
-                gauss = np.exp(-(((Gx - x)**2 + (Gy - y)**2)/ ( 2.0 * r**2 ) ) )  
+                sigma = FWHM/2.355
+                   
+                gauss = np.exp(-(((Gx - x)**2 + (Gy - y)**2)/ ( 2.0 * sigma**2 ) ) )  
 
                 sgauss = np.sum(gauss)
 
