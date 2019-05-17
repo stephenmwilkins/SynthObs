@@ -2,12 +2,15 @@ from scipy.spatial import cKDTree
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.convolution import convolve, convolve_fft, Gaussian2DKernel
+from astropy.modeling.models import Sersic2D
 
 from astropy.io import fits
 
 from ..core import * 
 
 import FLARE.filters 
+
+
 
 
 
@@ -154,7 +157,83 @@ def point_source(flux, filter, width=10., resampling_factor=False, pixel_scale=F
     return observed_frame(np.array([0.0]),np.array([0.0]), flux, filter, width, resampling_factor, pixel_scale, smoothed, PSF, xoffset = xoffset, yoffset = yoffset)
     
     
+
+
+
+
+
+class observed_TEST():
+
+    def __init__(self, X_arcsec, Y_arcsec, flux, filter, width=10., resampling_factor = False, pixel_scale = False, PSF = None, xoffset = 0.0, yoffset = 0.0):
     
+        self.warnings = []
+
+        self.base_pixel_scale = FLARE.filters.pixel_scale[filter]
+
+        self.width = width # target width in " 
+        
+        if resampling_factor:
+            self.pixel_scale = self.base_pixel_scale / resampling_factor # the actual resolution 
+            self.resampling_factor = resampling_factor
+        elif pixel_scale:
+            self.pixel_scale = pixel_scale
+            self.resampling_factor = self.base_pixel_scale/self.pixel_scale
+        else:
+            self.pixel_scale = self.base_pixel_scale
+            self.resampling_factor = 1.0
+        
+        self.Ndim = round(self.width / self.pixel_scale)
+        self.actual_width = self.Ndim *  self.pixel_scale # actual width "
+        self.PSF = PSF # PSF object
+
+
+        self.X_arcsec = X_arcsec
+        self.Y_arcsec = Y_arcsec
+        
+        self.X_pix = self.X_arcsec/self.pixel_scale + xoffset # offset's are necessary so that the object doesn't in the middle of a pixel
+        self.Y_pix = self.Y_arcsec/self.pixel_scale + yoffset # offset's are necessary so that the object doesn't in the middle of a pixel
+        
+        inst = filter.split('.')[1]
+        f = filter.split('.')[-1]
+        
+        self.flux = flux
+    
+     
+    def Sersic(self, p):
+    
+
+    
+        # --- unlike the other routines this works by convolving the intrinsic Sersic image with the PSF
+    
+        x = y = np.linspace(-(self.Ndim/2.-0.5), (self.Ndim/2.-0.5), self.Ndim)
+        
+        xx, yy = np.meshgrid(x, y)        
+    
+        mod = Sersic2D(amplitude = 1, r_eff = p['r_eff'], n = p['n'], x_0 = self.X_pix, y_0 = self.Y_pix, ellip = p['ellip'], theta = p['theta'])
+        
+        sersic = mod(xx, yy)
+        
+        sersic /= np.sum(sersic)
+        
+        psf = self.PSF.f(x/self.resampling_factor, y/self.resampling_factor)
+    
+        psf /= np.sum(psf)
+        
+        image = empty()
+    
+        image.img = convolve(self.flux * sersic, psf)
+        
+        return image        
+
+
+
+
+
+
+
+
+
+
     
     
     

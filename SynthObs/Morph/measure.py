@@ -169,7 +169,15 @@ class intrinsic():
         
     def rsersic(self, n = False): # --- fit by a Sersic function
     
-        return self.fit_sersic(n)[0]
+        try:
+        
+            r = self.fit_sersic(n)[0]
+        
+        except:
+        
+            r = -99
+    
+        return r
  
 
 #     def rpetrosian(self): # ------ determine Petrosian radius
@@ -184,7 +192,10 @@ class intrinsic():
     
         return {'pixel': self.rpix(), 'curve': self.rcurve(), 'sersic1': self.rsersic(n=1), 'sersic': self.rsersic()} 
         
-        
+    def r_e_limited(self):
+    
+        return {'pixel': self.rpix(), 'curve': self.rcurve()} 
+          
         
 #     def A(self): # --- assymmetry
 #     
