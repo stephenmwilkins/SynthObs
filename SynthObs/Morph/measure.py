@@ -88,17 +88,17 @@ class intrinsic():
         
         self.total = np.sum(self.img.data)
 
-    def detect_sources(self, threshold = False, npixels = 10):
-
-        if not threshold:
-    
-            # threshold = np.min(self.img[self.img>0])
-        
-            threshold = np.sum(self.img.data)/1000.
-        
-        self.segm = detect_sources(self.img.data, threshold, npixels = npixels)
-    
-        self.cat = source_properties(self.img.data, self.segm)
+#     def detect_sources(self, threshold = False, npixels = 10):
+# 
+#         if not threshold:
+#     
+#             # threshold = np.min(self.img[self.img>0])
+#         
+#             threshold = np.sum(self.img.data)/1000.
+#         
+#         self.segm = detect_sources(self.img.data, threshold, npixels = npixels)
+#     
+#         self.cat = source_properties(self.img.data, self.segm)
     
 #         for i, o in enumerate(self.cat):
 #             print(i, o.centroid, o.source_sum/np.sum(self.img.img))
@@ -109,7 +109,12 @@ class intrinsic():
         if not self.cat: self.detect_sources()
     
         radii = np.arange(dr, self.img.width/self.img.resolution, dr) # in pixels
+        
+        
+        
         positions = [self.cat[objid].centroid] # centre
+        
+        
         apertures = [CircularAperture(positions, r=r) for r in radii] #r in pixels
         phot_table = aperture_photometry(self.img.data, apertures) 
     
@@ -194,7 +199,7 @@ class intrinsic():
         
     def r_e_limited(self):
     
-        return {'pixel': self.rpix(), 'curve': self.rcurve()} 
+        return {'pixel': self.rpix()} 
           
         
 #     def A(self): # --- assymmetry
