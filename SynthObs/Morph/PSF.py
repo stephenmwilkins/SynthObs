@@ -9,17 +9,17 @@ import FLARE.filters
 from astropy.convolution import convolve, convolve_fft, Gaussian2DKernel
 
 
+def PSFs(filters):
+       
+    return {f:PSF(f) for f in filters}
 
-def PSF(filters):
 
-    psf = {}
-    
-    for f in filters:
-    
-        if f.split('.')[0] == 'HST': psf[f] = HubblePSF(f)
-        if f.split('.')[0] == 'JWST': psf[f] = WebbPSF(f)
-        if f.split('.')[0] == 'Euclid': psf[f] = EuclidPSF(f)
-        if f.split('.')[0] == 'Spitzer': psf[f] = SpitzerPSF(f)
+def PSF(f):
+        
+    if f.split('.')[0] == 'HST': psf = HubblePSF(f)
+    if f.split('.')[0] == 'JWST': psf = WebbPSF(f)
+    if f.split('.')[0] == 'Euclid': psf = EuclidPSF(f)
+    if f.split('.')[0] == 'Spitzer': psf = SpitzerPSF(f)
     
     return psf
 
@@ -64,15 +64,13 @@ class HubblePSF():
         
         self.data = fits.open(fn)[0].data[1:,1:]
 
-        self.data /= np.sum(self.data)
-
         charge_diffusion_kernel = np.array([[0.002, 0.038, 0.002],[0.038, 0.840, 0.038],[0.002, 0.038, 0.002]]) # pixels?
         
         x = y = np.linspace(-1, 1, 3) # in original pixels
         
         f_charge_diffusion_kernel= interpolate.interp2d(x, y, charge_diffusion_kernel, kind='linear', fill_value = 0.0)
         
-        x = y = np.linspace(-3, 3, 61) 
+        x = y = np.linspace(-3, 3, 31) 
 
         resampled_charge_diffusion_kernel = f_charge_diffusion_kernel(x,y)
 
@@ -80,7 +78,9 @@ class HubblePSF():
 
         Ndim = self.convolved_data.shape[0]
 
-        x = y = np.linspace(-(Ndim/2.)/10, (Ndim/2.)/10, Ndim) # in original pixels
+        
+
+        x = y = np.linspace(-(Ndim/2.)/5., (Ndim/2.)/5., Ndim) # in original pixels
 
         self.f = interpolate.interp2d(x, y, self.convolved_data, kind='linear', fill_value = 0.0)
 
@@ -110,6 +110,11 @@ class EuclidPSF():
 
         self.f = interpolate.interp2d(x, y, self.data, kind='linear', fill_value = 0.0)
 
+
+
+def Spitzer(filters):
+
+    return {f: SpitzerPSF(f) for f in filters}
 
 class SpitzerPSF():
 

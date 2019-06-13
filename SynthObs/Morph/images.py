@@ -1,5 +1,7 @@
 from scipy.spatial import cKDTree
 import numpy as np
+
+from scipy.misc import imresize
 import matplotlib.pyplot as plt
 from astropy.convolution import convolve, convolve_fft, Gaussian2DKernel
 from astropy.modeling.models import Sersic2D
@@ -10,374 +12,409 @@ from ..core import *
 
 import FLARE.filters 
 
+class empty(): pass
+
+
+
+def rebin(arr, new_shape):
+    shape = (new_shape[0], arr.shape[0] // new_shape[0],
+             new_shape[1], arr.shape[1] // new_shape[1])
+    return arr.reshape(shape).sum(-1).sum(1)
+
+
+# create an image with no PSF smoothing. This is a base class to be called by other routines.
+
+
+def core(X, Y, L, resolution = 0.1, ndim = 100, smoothing = False, verbose = False):
+
+
+    # X, Y, resolution, and smoothing scale all in the same units (default physical kpc)
+
+    img = empty()
+
+
+    if smoothing: 
+        smoothing_method, smoothing_scale = smoothing
+    else:
+        smoothing_method = False
+
+    width = ndim * resolution
+
+    img.hist = np.zeros((ndim, ndim))
+    img.simple = np.zeros((ndim, ndim))   
+    img.smoothed = np.zeros((ndim, ndim))
+
+    # --- exclude particles not inside the image area
+    
+    sel = (np.fabs(X)<width/2.)&(np.fabs(Y)<width/2.)
+    X = X[sel]
+    Y = Y[sel]
+    L = L[sel]
+    
+    
+    G = np.linspace(-width/2.,width/2., ndim)
+    # G = np.linspace(-(width+resolution)/2., (width+resolution)/2., ndim+1)
+    Gx, Gy = np.meshgrid(G, G)
+    
+    
+    if verbose:
+        print('*'*5, 'CORE')
+        print('width: {0:.2f} kpc'.format(width))
+        print('ndim: {0:.2f} '.format(ndim))
+        print('resolution: {0:.2f} '.format(resolution))
+        print('N_particles: {0:.2f} '.format(len(X)))
+        print('smoothing method: {0} '.format(smoothing_method))
+    
+    for x,y,l in zip(X, Y, L):
+        i, j = (np.abs(G - x)).argmin(), (np.abs(G - y)).argmin()
+        img.simple[j,i] += l
+        img.hist[j,i] += 1
+    
+    
+    if smoothing_method == 'convolved_gaussian':
+    
+        sigma = smoothing_scale/2.355
+        gauss = np.exp(-((Gx**2 + Gy**2)/ ( 2.0 * sigma**2 ) ) )  
+        gauss /= np.sum(gauss)
+            
+        img.smoothed = convolve_fft(img.simple, gauss)
+        img.img = img.smoothed
+             
+    elif smoothing_method == 'adaptive':
+     
+        tree = cKDTree(np.column_stack([X, Y]), leafsize=16, compact_nodes=True, copy_data=False, balanced_tree=True)
+
+        nndists, nninds = tree.query(np.column_stack([X, Y]), k = smoothing_scale, n_jobs=-1) # k = nth nearest neighbour
+    
+        for x,y,l,nndist in zip(X, Y, L, nndists):
+
+            FWHM = np.max([nndist[-1], 0.01])
+            
+            sigma = FWHM/2.355
+               
+            gauss = np.exp(-(((Gx - x)**2 + (Gy - y)**2)/ ( 2.0 * sigma**2 ) ) )  
+
+            sgauss = np.sum(gauss)
+
+            if sgauss > 0: img.smoothed += l*gauss/sgauss
+            
+        img.img = img.smoothed
+        
+    else:
+    
+        img.img = img.simple   
+            
+    return img
 
 
 
 
-def physical(X, Y, luminosities, filters, resolution = 0.1, Ndim = 100, smoothing = False, smoothing_parameter = False):
 
-    return {f: physical_individual(X, Y, luminosities[f], resolution = resolution, Ndim = Ndim, smoothing = smoothing, smoothing_parameter = smoothing_parameter) for f in filters}
+
+class observed():
+
+    def __init__(self, filter, cosmo, z, target_width_arcsec, resampling_factor=False, pixel_scale=False, smoothing = False, PSF = False, super_sampling = 10, verbose = False, xoffset_pix = 0.0, yoffset_pix = 0.0):
+
+        self.filter = filter
+        self.target_width_arcsec = target_width_arcsec
+        self.resampling_factor = resampling_factor
+        self.pixel_scale = pixel_scale
+        self.smoothing = smoothing
+        self.PSF = PSF
+        self.verbose = verbose
+        self.super_sampling = super_sampling
+        
+        self.native_pixel_scale = FLARE.filters.pixel_scale[self.filter]
+
+        if self.resampling_factor:
+            self.pixel_scale = self.native_pixel_scale / self.resampling_factor # the actual resolution 
+            self.resampling_factor = self.resampling_factor
+        elif self.pixel_scale:
+            self.pixel_scale = self.pixel_scale
+            self.resampling_factor = self.native_pixel_scale/self.pixel_scale
+        else:
+            self.pixel_scale = self.native_pixel_scale
+            self.resampling_factor = 1.0
+
+        self.arcsec_per_proper_kpc = cosmo.arcsec_per_kpc_proper(z).value
+
+        self.pixel_scale_kpc = self.pixel_scale/self.arcsec_per_proper_kpc
+
+        self.ndim = int(self.target_width_arcsec/self.pixel_scale)
+
+        self.width_arcsec = self.ndim * self.pixel_scale
+        
+        self.width = self.width_arcsec/self.arcsec_per_proper_kpc # width in kpc
+    
+        
+
+        self.resolution = self.pixel_scale_kpc/self.super_sampling
+    
+        
+        self.ndim_super = self.ndim * self.super_sampling
+    
+        # --- add sub-pixel offsets
+    
+        self.xoffset = xoffset_pix * self.pixel_scale_kpc
+        self.yoffset = yoffset_pix * self.pixel_scale_kpc
     
 
-class physical_individual():
-
-    def __init__(self, X, Y, L, resolution = 0.1, Ndim = 100, smoothing = False, smoothing_parameter = False):
-
-        self.warnings = []
-
-        # Centre star particle positions using the median as the centre *** NOTE: true centre could later be defined ***
+    
+        if verbose:
+            print('*'*5, 'OBSERVED')
+            print('z: {0}'.format(z))
+            print('"/kpc: {0:.2f}'.format(self.arcsec_per_proper_kpc))
+            print('-'*10)
+    
+            print('target width/": {0:.2f}'.format(self.target_width_arcsec))
+            print('width/": {0:.2f}'.format(self.width_arcsec))
+            print('width/kpc: {0:.2f}'.format(self.width))
+            print('-'*10)
+        
+            print('native pixel scale/": {0:.2f}'.format(self.native_pixel_scale))
+            print('pixel scale/": {0:.2f}'.format(self.pixel_scale))
+            print('pixel scale/kpc: {0:.2f}'.format(self.pixel_scale_kpc))
+            print('super sampling: {0:.2f}'.format(self.super_sampling))
+            print('resolution/kpc: {0:.2f}'.format(self.resolution))
+            print('ndim: {0:.2f}'.format(self.ndim))
+            print('-'*10)
+        
+    
+    def particle(self, X, Y, L):
+    
         X -= np.median(X)
         Y -= np.median(Y)
-
-        # Boolean = Whether to apply gaussian smoothing to star particles
-        self.smoothing = smoothing
-        self.smoothing_parameter = smoothing_parameter
-
-        # Image properties
-        self.Ndim = Ndim
-        self.resolution = resolution
-        self.width = Ndim * resolution 
-
-        range = [np.max(X) - np.min(X), np.max(Y) - np.min(Y)]
-
-        if any(x>Ndim*resolution for x in range): self.warnings.append('Warning particles will extend beyond image limits')
-
-                
-
-        self.data = np.zeros((self.Ndim, self.Ndim))
-
-        # --- exclude particles not inside the image area
-        
-        sel = (np.fabs(X)<self.width/2.)&(np.fabs(Y)<self.width/2.)
-        
-        X = X[sel]
-        Y = Y[sel]
-        L = L[sel]
-
-        if self.smoothing == 'gaussian':
-        
-            Gx, Gy = np.meshgrid(np.linspace(-(self.width+self.resolution)/2., (self.width+self.resolution)/2., Ndim+1), np.linspace(-(self.width+self.resolution)/2., (self.width+self.resolution)/2., Ndim+1))
-        
-            sigma = self.smoothing_parameter/2.355
-            
-            gauss = np.exp(-((Gx**2 + Gy**2)/ ( 2.0 * sigma**2 ) ) )  
-            gauss /= np.sum(gauss)
-            
-            g = np.linspace(-self.width/2.,self.width/2.,Ndim)
-        
-            for x,y,l in zip(X, Y, L):
-        
-                i, j = (np.abs(g - x)).argmin(), (np.abs(g - y)).argmin()
-        
-                self.data[j,i] += l
-                
-            self.data = convolve_fft(self.data, gauss)
-            
-            
-
-        elif self.smoothing == 'adaptive':
-         
-            Gx, Gy = np.meshgrid(np.linspace(-self.width/2., self.width/2., Ndim), np.linspace(-self.width/2., self.width/2., Ndim))
-
-            tree = cKDTree(np.column_stack([X, Y]), leafsize=16, compact_nodes=True, copy_data=False, balanced_tree=True)
-
-            nndists, nninds = tree.query(np.column_stack([X, Y]), k=self.smoothing_parameter, n_jobs=-1) # k = nth nearest neighbour
-        
-            for x,y,l,nndist in zip(X, Y, L, nndists):
     
-                FWHM = np.max([nndist[-1], self.resolution])
-                
-                sigma = FWHM/2.355
-                   
-                gauss = np.exp(-(((Gx - x)**2 + (Gy - y)**2)/ ( 2.0 * sigma**2 ) ) )  
-
-                sgauss = np.sum(gauss)
-
-                if sgauss > 0: self.data += l*gauss/sgauss
-
-
-        elif self.smoothing == False:
+        X += self.xoffset
+        Y += self.yoffset
+    
+        super = core(X, Y, L, resolution = self.resolution, ndim = self.ndim_super, smoothing = self.smoothing, verbose = self.verbose)
+    
+        # --- apply PSF to super
+    
+        xx = yy = np.linspace(-(self.width_arcsec/self.native_pixel_scale/2.), (self.width_arcsec/self.native_pixel_scale/2.), self.ndim_super)
+    
+        psf = self.PSF.f(xx, yy)
+    
+        super.smoothed_with_PSF = convolve_fft(super.smoothed, psf)
+    
+        # --- resample back pixel scale
+    
+        observed = empty()
+        observed.pixel_scale = self.pixel_scale
+        observed.pixel_scale_kp = self.pixel_scale_kpc
+    
+        observed.smoothed = rebin(super.smoothed, (self.ndim, self.ndim))
+        observed.smoothed_with_PSF = rebin(super.smoothed_with_PSF, (self.ndim, self.ndim))
+        observed.img = observed.smoothed_with_PSF
              
-            g = np.linspace(-self.width/2.,self.width/2.,Ndim)
-        
-            for x,y,l in zip(X, Y, L):
-        
-                i, j = (np.abs(g - x)).argmin(), (np.abs(g - y)).argmin()
-        
-                self.data[j,i] += l
+        return observed, super
 
 
 
 
 
+    def Sersic(self, L, p):
 
-
-
-
-
-
-
-
-
-
-def observed(X, Y, fluxes, filters, cosmo, redshift, width = 10., resampling_factor = False, pixel_scale = False, smoothed = False, PSFs = None):
-
-    xoffset = np.random.random() - 0.5 # offset in pixels
-    yoffset = np.random.random() - 0.5 # offset in pixels
-
-    return {f: observed_individual(X, Y, fluxes[f], f, cosmo, redshift, width = width, resampling_factor = resampling_factor, pixel_scale = pixel_scale, smoothed = smoothed, PSF = PSFs[f], xoffset = xoffset, yoffset = yoffset) for f in filters}
-
-
-def observed_individual(X, Y, flux, filter, cosmo, redshift, width=10., resampling_factor=False, pixel_scale=False, smoothed=False, PSF = None, xoffset = 0.0, yoffset = 0.0):
-
-    X -= - np.median(X) 
-    Y -= - np.median(Y) 
+        g = np.linspace(-self.width/2., self.width/2.,  self.ndim_super) # in kpc
+                
+        xx, yy = np.meshgrid(g, g)        
     
-    arcsec_per_proper_kpc = cosmo.arcsec_per_kpc_proper(redshift).value
-    
-    X_arcsec = X * arcsec_per_proper_kpc
-    Y_arcsec = Y * arcsec_per_proper_kpc
-    
-    return observed_frame(X_arcsec, Y_arcsec, flux, filter, width=width, resampling_factor=resampling_factor, pixel_scale=pixel_scale, smoothed=smoothed, PSF = PSF, xoffset = xoffset, yoffset = yoffset)
-
-
-
-
-
-def point_sources(fluxes, filters, width=10., resampling_factor=False, pixel_scale=False, smoothed=False, PSFs = None):
-
-    xoffset = np.random.random() - 0.5
-    yoffset = np.random.random() - 0.5
-
-    return {f: observed_frame(np.array([0.0]), np.array([0.0]), fluxes[f], f, width, resampling_factor, pixel_scale, smoothed, PSFs[f], xoffset = xoffset, yoffset = yoffset) for f in filters}
-
-
-def point_source(flux, filter, width=10., resampling_factor=False, pixel_scale=False, smoothed=False, PSF = None, xoffset = 0.0, yoffset = 0.0):
-
-    return observed_frame(np.array([0.0]),np.array([0.0]), flux, filter, width, resampling_factor, pixel_scale, smoothed, PSF, xoffset = xoffset, yoffset = yoffset)
-    
-    
-
-
-
-
-
-class observed_TEST():
-
-    def __init__(self, X_arcsec, Y_arcsec, flux, filter, width=10., resampling_factor = False, pixel_scale = False, PSF = None, xoffset = 0.0, yoffset = 0.0):
-    
-        self.warnings = []
-
-        self.base_pixel_scale = FLARE.filters.pixel_scale[filter]
-
-        self.width = width # target width in " 
-        
-        if resampling_factor:
-            self.pixel_scale = self.base_pixel_scale / resampling_factor # the actual resolution 
-            self.resampling_factor = resampling_factor
-        elif pixel_scale:
-            self.pixel_scale = pixel_scale
-            self.resampling_factor = self.base_pixel_scale/self.pixel_scale
-        else:
-            self.pixel_scale = self.base_pixel_scale
-            self.resampling_factor = 1.0
-        
-        self.Ndim = round(self.width / self.pixel_scale)
-        self.actual_width = self.Ndim *  self.pixel_scale # actual width "
-        self.PSF = PSF # PSF object
-
-
-        self.X_arcsec = X_arcsec
-        self.Y_arcsec = Y_arcsec
-        
-        self.X_pix = self.X_arcsec/self.pixel_scale + xoffset # offset's are necessary so that the object doesn't in the middle of a pixel
-        self.Y_pix = self.Y_arcsec/self.pixel_scale + yoffset # offset's are necessary so that the object doesn't in the middle of a pixel
-        
-        inst = filter.split('.')[1]
-        f = filter.split('.')[-1]
-        
-        self.flux = flux
-    
-     
-    def Sersic(self, p):
-    
-
-    
-        # --- unlike the other routines this works by convolving the intrinsic Sersic image with the PSF
-    
-        x = y = np.linspace(-(self.Ndim/2.-0.5), (self.Ndim/2.-0.5), self.Ndim)
-        
-        xx, yy = np.meshgrid(x, y)        
-    
-        mod = Sersic2D(amplitude = 1, r_eff = p['r_eff'], n = p['n'], x_0 = self.X_pix, y_0 = self.Y_pix, ellip = p['ellip'], theta = p['theta'])
+        mod = Sersic2D(amplitude = 1, r_eff = p['r_eff'], n = p['n'], x_0 = self.xoffset, y_0 = self.yoffset, ellip = p['ellip'], theta = p['theta'])
         
         sersic = mod(xx, yy)
-        
         sersic /= np.sum(sersic)
         
-        psf = self.PSF.f(x/self.resampling_factor, y/self.resampling_factor)
+        super = empty()
+        super.pixel_scale = self.pixel_scale/self.super_sampling
+        super.pixel_scale_kpc = self.pixel_scale_kpc/self.super_sampling
+        
+        super.simple = L * sersic
+        
+        # --- apply PSF to super
     
-        psf /= np.sum(psf)
-        
-        image = empty()
+        xx = yy = np.linspace(-(self.width_arcsec/self.native_pixel_scale/2.), (self.width_arcsec/self.native_pixel_scale/2.), self.ndim_super)
     
-        image.img = convolve(self.flux * sersic, psf)
+        psf = self.PSF.f(xx, yy)
+    
+        super.simple_with_PSF = convolve_fft(super.simple, psf)
+        super.img = super.simple_with_PSF 
         
-        return image        
+        # --- resample back pixel scale
+        
+        observed = empty()
+        observed.pixel_scale = self.pixel_scale
+        observed.pixel_scale_kpc = self.pixel_scale_kpc
+    
+        observed.simple = rebin(super.simple, (self.ndim, self.ndim))
+        observed.simple_with_PSF = rebin(super.simple_with_PSF, (self.ndim, self.ndim))
+        observed.img = observed.simple_with_PSF
+        
+        return observed, super        
+
+
+
+
+
+def particle(X, Y, L, filters, cosmo, z, target_width_arcsec, resampling_factor=False, pixel_scale=False, smoothing = False, PSFs = False, super_sampling = 10, verbose = False, offsets = False):
+
+    if offsets:
+        xoffset_pix_base = np.random.random() - 0.5 # offset in pixels
+        yoffset_pix_base = np.random.random() - 0.5 # offset in pixels
+    else:
+        xoffset_pix_base = yoffset_pix_base = 0.0
+
+    # --- determine coarsest pixels
+    
+    max_pixel_scale = np.max([FLARE.filters.pixel_scale[filter] for filter in filters])
+    
+    imgs = {}
+    
+    for filter in filters:
+
+        xoffset_pix = xoffset_pix_base * (max_pixel_scale/FLARE.filters.pixel_scale[filter]) 
+        yoffset_pix = yoffset_pix_base * (max_pixel_scale/FLARE.filters.pixel_scale[filter]) 
+
+        obs, super = observed(filter, cosmo, z, target_width_arcsec, resampling_factor = resampling_factor, pixel_scale = pixel_scale, smoothing = smoothing, PSF = PSFs[filter], super_sampling = super_sampling, verbose = verbose, xoffset_pix = xoffset_pix, yoffset_pix = xoffset_pix).particle(X, Y, L[filter])
+
+        imgs[filter] = obs
+
+    return imgs
+
+        
+
+def Sersic(L, p, filters, cosmo, z, target_width_arcsec, resampling_factor=False, pixel_scale=False, smoothing = False, PSFs = False, super_sampling = 10, verbose = False, offsets = False):
+
+    if offsets:
+        xoffset_pix_base = np.random.random() - 0.5 # offset in pixels
+        yoffset_pix_base = np.random.random() - 0.5 # offset in pixels
+    else:
+        xoffset_pix_base = yoffset_pix_base = 0.0
+
+    # --- determine coarsest pixels
+    
+    max_pixel_scale = np.max([FLARE.filters.pixel_scale[filter] for filter in filters])
+    
+    imgs = {}
+    
+    for filter in filters:
+
+        xoffset_pix = xoffset_pix_base * (max_pixel_scale/FLARE.filters.pixel_scale[filter]) 
+        yoffset_pix = yoffset_pix_base * (max_pixel_scale/FLARE.filters.pixel_scale[filter]) 
+
+        obs, super = observed(filter, cosmo, z, target_width_arcsec, resampling_factor = resampling_factor, pixel_scale = pixel_scale, smoothing = smoothing, PSF = PSFs[filter], super_sampling = super_sampling, verbose = verbose, xoffset_pix = xoffset_pix, yoffset_pix = xoffset_pix).Sersic(L[filter], p)
+
+        imgs[filter] = obs
+
+    return imgs
 
 
 
 
 
 
+def point(flux, filter, target_width_arcsec, resampling_factor = False, pixel_scale = False, PSF = False, verbose = False, super_sampling = 5, xoffset_pix = 0.0, yoffset_pix = 0.0):
 
 
+    native_pixel_scale = FLARE.filters.pixel_scale[filter]
 
+    if resampling_factor:
+        pixel_scale = native_pixel_scale / resampling_factor # the actual resolution 
+        resampling_factor = resampling_factor
+    elif pixel_scale:
+        pixel_scale = pixel_scale
+        resampling_factor = native_pixel_scale/pixel_scale
+    else:
+        pixel_scale = native_pixel_scale
+        resampling_factor = 1.0
 
+    ndim = int(target_width_arcsec/pixel_scale)
+    ndim_super = ndim * super_sampling
+
+    width_arcsec = ndim * pixel_scale
+
+    xoffset_arcsec = xoffset_pix * pixel_scale
+    yoffset_arcsec = yoffset_pix * pixel_scale
     
     
+    if verbose:
+        print('*'*5, 'POINT')
+        print('-'*10)
+        
+        print('target width/": {0:.2f}'.format(target_width_arcsec))
+        print('width/": {0:.2f}'.format(width_arcsec))
+        print('-'*10)
+        print('native pixel scale/": {0:.2f}'.format(native_pixel_scale))
+        print('pixel scale/": {0:.2f}'.format(pixel_scale))
+        print('super sampling: {0:.2f}'.format(super_sampling))
+        print('ndim: {0:.2f}'.format(ndim))
+        print('-'*10)
     
+     
+    super = empty()
+    super.ndim = ndim_super
+    super.pixel_scale = pixel_scale/super_sampling
+    super.hist = np.zeros((ndim_super, ndim_super))
+    super.simple = np.zeros((ndim_super, ndim_super))   
+        
+    g = np.linspace(-width_arcsec/2.,width_arcsec/2., ndim_super)
+    i, j = (np.abs(g - xoffset_arcsec)).argmin(), (np.abs(g - yoffset_arcsec)).argmin()
+    super.simple[j,i] += flux
+    super.hist[j,i] += 1
+        
+    # --- apply PSF to super
+
+    xx = yy = np.linspace(-((width_arcsec/2.)/native_pixel_scale), (width_arcsec/2.)/native_pixel_scale, ndim_super)
+
+    psf = PSF.f(xx, yy)
+
+    super.simple_with_PSF = convolve_fft(super.simple, psf)
+    super.img = super.simple_with_PSF
+
+    # --- resample back pixel scale
+
+    observed = empty()
+    observed.ndim = ndim
+    observed.pixel_scale = pixel_scale
+    observed.simple = rebin(super.simple, (ndim, ndim))
+    observed.simple_with_PSF = rebin(super.simple_with_PSF, (ndim, ndim))
+    observed.img = observed.simple_with_PSF
     
+    return observed, super
+
+
+
+
+def points(fluxes, filters, width_arcsec, resampling_factor = False, pixel_scale = False, PSFs = False, verbose = False):
+
+    xoffset_pix = np.random.random() - 0.5 # offset in pixels
+    yoffset_pix = np.random.random() - 0.5 # offset in pixels
+
+    imgs = {}
     
+    for filter in filters:
+        imgs[filter] = empty()
+        obs, super = point(fluxes[filter], filter, width_arcsec, resampling_factor = resampling_factor, pixel_scale = pixel_scale, PSF = PSFs[filter], verbose = verbose, xoffset_pix = xoffset_pix, yoffset_pix = yoffset_pix)   
+        imgs[filter].img = obs.img
 
-class observed_frame():
-    """ A class for computing synthetic Webb observations. 
-    """
-    
-    def __init__(self, X_arcsec, Y_arcsec, flux, filter, width=10., resampling_factor=False, pixel_scale=False, smoothed=False, PSF = None, xoffset = 0.0, yoffset = 0.0):
-        
-        """
-        :param X: Star Particle X position in kpc. [nStar]
-        :param Y: Star Particle Y position in kpc. [nStar]
-        :param flux: An array of flux for each star particle for each filter in nJy. [nStar, nnircfilter]
-        :param nircfilter: Either a string of the form JWST.NIRCam.XXXXX, where XXXXX is the desired filter code
-        or the FWHM of the gaussian PSF (float).
-        :param width: Width of the image along a single axis (this is approximate since images must be odd in dimension)
-        :param resampling_factor: The integer amount of resampling done to increase resolution. (int)
-        :param smoothed: Boolean, whether to apply smoothing.
-        :param PSF: Instance of the webbPSFs object for the desired filter .
-        :param show: Boolean, whether to show images.
-        """
-
-        self.warnings = []
-
-        self.base_pixel_scale = FLARE.filters.pixel_scale[filter]
-
-        self.width = width # target width in " 
-        
-        if resampling_factor:
-            self.pixel_scale = self.base_pixel_scale / resampling_factor # the actual resolution 
-            self.resampling_factor = resampling_factor
-        elif pixel_scale:
-            self.pixel_scale = pixel_scale
-            self.resampling_factor = self.base_pixel_scale/self.pixel_scale
-            # self.resampling_factor = 1.0
-        else:
-            self.pixel_scale = self.base_pixel_scale
-            self.resampling_factor = 1.0
-        
-        self.Ndim = round(self.width / self.pixel_scale)
-        self.actual_width = self.Ndim *  self.pixel_scale # actual width "
-        self.PSF = PSF # PSF object
+    return imgs
 
 
-        self.X_arcsec = X_arcsec
-        self.Y_arcsec = Y_arcsec
-        
-        self.X_pix = self.X_arcsec/self.pixel_scale + xoffset # offset's are necessary so that the object doesn't in the middle of a pixel
-        self.Y_pix = self.Y_arcsec/self.pixel_scale + yoffset # offset's are necessary so that the object doesn't in the middle of a pixel
-        
-        
-        inst = filter.split('.')[1]
-        f = filter.split('.')[-1]
-        
-        self.smoothed = smoothed
-
-        self.flux = flux
-
-#        
-#         # Get the range of x and y star particle positions
-#         pos_range = [np.max(X) - np.min(X), np.max(Y) - np.min(Y)]
-# 
-#         # If star particles extend beyond the image print a warning
-#         if any(x > self.actual_width for x in pos_range): self.warnings.append('Warning particles will extend beyond image limits')
-# 
-
-        # --- there are now 3 possible options
-        
-        if self.PSF is not None:
-
-            # --- THIS NEEDS RE-WRITING BY **WILL**   
-
-            # astropy.convolve requires images have odd dimensions
-            
-            self.simple_img = self.simpleimg()
-            self.img = self.smoothimg(self.PSF.f)
-       
-        else:
 
 
-            # If smoothing is required compute the smoothed image for each filter
-            if self.smoothed:
-
-                self.img = self.smoothimg() # need to give it a smoothing function
-
-            # If smoothing is not required compute the simple images
-            else:
-
-                self.img = self.simpleimg()
-
-        
-    def simpleimg(self):
-        """ A method for creating simple images where the stars are binned based on their position.
-
-        :param F: The flux array for the current filter
-        :return: Image array
-        """
-
-        # Initialise the image array
-        simple_img = np.zeros((self.Ndim, self.Ndim))
-
-        # Get the image pixel coordinates
-        g = np.linspace(-self.width / 2., self.width / 2., self.Ndim)
-
-        # Loop through star particles
-        for x, y, l in zip(self.X_arcsec, self.Y_arcsec, self.flux):
-
-            # Get the stars position within the image
-            i, j = (np.abs(g - x)).argmin(), (np.abs(g - y)).argmin()
-
-            # Add the flux of this star to the corresponding pixel
-            simple_img[j, i] += l
-
-        return simple_img
 
 
-    def smoothimg(self, f):
-        """ A method for creating images with gaussian smoothing applied to each star with either the distance to the
-        7th nearest neighbour or 0.1 kpc used for the standard deviation of the gaussian.
 
-        :param f: a scipy 2D interpolator object
-        :return: Image array
-        """
 
-        # =============== Compute the gaussian smoothed image ===============
 
-        image = np.zeros((self.Ndim, self.Ndim))
 
-        xx = yy = np.arange(-self.Ndim/2.+0.5, self.Ndim/2., 1.)  # in original pixels
 
-        for x, y, l in zip(self.X_pix, self.Y_pix, self.flux):
 
-            # Get this star's position within the image
-            
-            g = f((xx-x)/self.resampling_factor, (yy-y)/self.resampling_factor)
-            
-            g /= np.sum(g)
-            
-            image += l * g
-            
-        return image
+
+
+
+
+
 
 
 
