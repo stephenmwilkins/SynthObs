@@ -27,11 +27,9 @@ def rebin(arr, new_shape):
 
 def core(X, Y, L, resolution = 0.1, ndim = 100, smoothing = False, verbose = False):
 
-
     # X, Y, resolution, and smoothing scale all in the same units (default physical kpc)
 
     img = empty()
-
 
     if smoothing: 
         smoothing_method, smoothing_scale = smoothing
@@ -42,7 +40,7 @@ def core(X, Y, L, resolution = 0.1, ndim = 100, smoothing = False, verbose = Fal
 
     img.hist = np.zeros((ndim, ndim))
     img.simple = np.zeros((ndim, ndim))   
-    img.smoothed = np.zeros((ndim, ndim))
+    img.data = np.zeros((ndim, ndim))
 
     # --- exclude particles not inside the image area
     
@@ -77,8 +75,8 @@ def core(X, Y, L, resolution = 0.1, ndim = 100, smoothing = False, verbose = Fal
         gauss = np.exp(-((Gx**2 + Gy**2)/ ( 2.0 * sigma**2 ) ) )  
         gauss /= np.sum(gauss)
             
-        img.smoothed = convolve_fft(img.simple, gauss)
-        img.img = img.smoothed
+        img.data = convolve_fft(img.simple, gauss)
+    
              
     elif smoothing_method == 'adaptive':
      
@@ -96,13 +94,13 @@ def core(X, Y, L, resolution = 0.1, ndim = 100, smoothing = False, verbose = Fal
 
             sgauss = np.sum(gauss)
 
-            if sgauss > 0: img.smoothed += l*gauss/sgauss
+            if sgauss > 0: img.data += l*gauss/sgauss
             
-        img.img = img.smoothed
+        
         
     else:
     
-        img.img = img.simple   
+        img.data = img.simple
             
     return img
 
@@ -113,7 +111,7 @@ def core(X, Y, L, resolution = 0.1, ndim = 100, smoothing = False, verbose = Fal
 
 class observed():
 
-    def __init__(self, filter, cosmo, z, target_width_arcsec, resampling_factor=False, pixel_scale=False, smoothing = False, PSF = False, super_sampling = 10, verbose = False, xoffset_pix = 0.0, yoffset_pix = 0.0):
+    def __init__(self, filter, cosmo, z, target_width_arcsec, resampling_factor=False, pixel_scale=False, smoothing = False, PSF = False, super_sampling = 4, verbose = False, xoffset_pix = 0.0, yoffset_pix = 0.0):
 
         self.filter = filter
         self.target_width_arcsec = target_width_arcsec
@@ -188,33 +186,41 @@ class observed():
         X += self.xoffset
         Y += self.yoffset
     
-        super = core(X, Y, L, resolution = self.resolution, ndim = self.ndim_super, smoothing = self.smoothing, verbose = self.verbose)
     
+        imgs = empty()
+    
+        imgs.super = core(X, Y, L, resolution = self.resolution, ndim = self.ndim_super, smoothing = self.smoothing, verbose = self.verbose)
+        imgs.super.no_PSF = imgs.super.data
+        
+        
         # --- apply PSF to super
     
         xx = yy = np.linspace(-(self.width_arcsec/self.native_pixel_scale/2.), (self.width_arcsec/self.native_pixel_scale/2.), self.ndim_super)
     
         psf = self.PSF.f(xx, yy)
-    
-        super.smoothed_with_PSF = convolve_fft(super.smoothed, psf)
-    
+
+        imgs.super.data = convolve_fft(imgs.super.no_PSF, psf)
+        
         # --- resample back pixel scale
     
-        observed = empty()
-        observed.pixel_scale = self.pixel_scale
-        observed.pixel_scale_kp = self.pixel_scale_kpc
-    
-        observed.smoothed = rebin(super.smoothed, (self.ndim, self.ndim))
-        observed.smoothed_with_PSF = rebin(super.smoothed_with_PSF, (self.ndim, self.ndim))
-        observed.img = observed.smoothed_with_PSF
-             
-        return observed, super
+        
+        imgs.img = empty()
+        imgs.img.pixel_scale = self.pixel_scale
+        imgs.img.pixel_scale_kpc = self.pixel_scale_kpc
+        imgs.img.no_PSF = rebin(imgs.super.no_PSF, (self.ndim, self.ndim))   
+        imgs.img.data = rebin(imgs.super.data, (self.ndim, self.ndim))
+                     
+        return imgs
 
 
 
 
 
     def Sersic(self, L, p):
+
+        
+        imgs = empty()
+
 
         g = np.linspace(-self.width/2., self.width/2.,  self.ndim_super) # in kpc
                 
@@ -225,11 +231,10 @@ class observed():
         sersic = mod(xx, yy)
         sersic /= np.sum(sersic)
         
-        super = empty()
-        super.pixel_scale = self.pixel_scale/self.super_sampling
-        super.pixel_scale_kpc = self.pixel_scale_kpc/self.super_sampling
-        
-        super.simple = L * sersic
+        imgs.super = empty()
+        imgs.super.pixel_scale = self.pixel_scale/self.super_sampling
+        imgs.super.pixel_scale_kpc = self.pixel_scale_kpc/self.super_sampling
+        imgs.super.no_PSF = L * sersic
         
         # --- apply PSF to super
     
@@ -237,20 +242,19 @@ class observed():
     
         psf = self.PSF.f(xx, yy)
     
-        super.simple_with_PSF = convolve_fft(super.simple, psf)
-        super.img = super.simple_with_PSF 
-        
+        imgs.super.data = convolve_fft(imgs.super.no_PSF, psf)
+                
+            
         # --- resample back pixel scale
         
-        observed = empty()
-        observed.pixel_scale = self.pixel_scale
-        observed.pixel_scale_kpc = self.pixel_scale_kpc
+
+        imgs.img = empty()
+        imgs.img.pixel_scale = self.pixel_scale
+        imgs.img.pixel_scale_kpc = self.pixel_scale_kpc
+        imgs.img.no_PSF = rebin(imgs.super.no_PSF, (self.ndim, self.ndim))
+        imgs.img.data = rebin(imgs.super.data, (self.ndim, self.ndim))
     
-        observed.simple = rebin(super.simple, (self.ndim, self.ndim))
-        observed.simple_with_PSF = rebin(super.simple_with_PSF, (self.ndim, self.ndim))
-        observed.img = observed.simple_with_PSF
-        
-        return observed, super        
+        return imgs   
 
 
 
@@ -268,18 +272,18 @@ def particle(X, Y, L, filters, cosmo, z, target_width_arcsec, resampling_factor=
     
     max_pixel_scale = np.max([FLARE.filters.pixel_scale[filter] for filter in filters])
     
-    imgs = {}
+    IMGs = {}
     
     for filter in filters:
 
         xoffset_pix = xoffset_pix_base * (max_pixel_scale/FLARE.filters.pixel_scale[filter]) 
         yoffset_pix = yoffset_pix_base * (max_pixel_scale/FLARE.filters.pixel_scale[filter]) 
 
-        obs, super = observed(filter, cosmo, z, target_width_arcsec, resampling_factor = resampling_factor, pixel_scale = pixel_scale, smoothing = smoothing, PSF = PSFs[filter], super_sampling = super_sampling, verbose = verbose, xoffset_pix = xoffset_pix, yoffset_pix = xoffset_pix).particle(X, Y, L[filter])
+        imgs = observed(filter, cosmo, z, target_width_arcsec, resampling_factor = resampling_factor, pixel_scale = pixel_scale, smoothing = smoothing, PSF = PSFs[filter], super_sampling = super_sampling, verbose = verbose, xoffset_pix = xoffset_pix, yoffset_pix = xoffset_pix).particle(X, Y, L[filter])
 
-        imgs[filter] = obs
+        IMGs[filter] = imgs.img
 
-    return imgs
+    return IMGs
 
         
 
@@ -295,18 +299,18 @@ def Sersic(L, p, filters, cosmo, z, target_width_arcsec, resampling_factor=False
     
     max_pixel_scale = np.max([FLARE.filters.pixel_scale[filter] for filter in filters])
     
-    imgs = {}
+    IMGs = {}
     
     for filter in filters:
 
         xoffset_pix = xoffset_pix_base * (max_pixel_scale/FLARE.filters.pixel_scale[filter]) 
         yoffset_pix = yoffset_pix_base * (max_pixel_scale/FLARE.filters.pixel_scale[filter]) 
 
-        obs, super = observed(filter, cosmo, z, target_width_arcsec, resampling_factor = resampling_factor, pixel_scale = pixel_scale, smoothing = smoothing, PSF = PSFs[filter], super_sampling = super_sampling, verbose = verbose, xoffset_pix = xoffset_pix, yoffset_pix = xoffset_pix).Sersic(L[filter], p)
+        imgs = observed(filter, cosmo, z, target_width_arcsec, resampling_factor = resampling_factor, pixel_scale = pixel_scale, smoothing = smoothing, PSF = PSFs[filter], super_sampling = super_sampling, verbose = verbose, xoffset_pix = xoffset_pix, yoffset_pix = xoffset_pix).Sersic(L[filter], p)
 
-        imgs[filter] = obs
+        IMGs[filter] = imgs.img
 
-    return imgs
+    return IMGs
 
 
 
@@ -350,17 +354,19 @@ def point(flux, filter, target_width_arcsec, resampling_factor = False, pixel_sc
         print('ndim: {0:.2f}'.format(ndim))
         print('-'*10)
     
+    
+    
+    imgs = empty()
+    
+    imgs.super = empty()
      
-    super = empty()
-    super.ndim = ndim_super
-    super.pixel_scale = pixel_scale/super_sampling
-    super.hist = np.zeros((ndim_super, ndim_super))
-    super.simple = np.zeros((ndim_super, ndim_super))   
+    imgs.super.hist = np.zeros((ndim_super, ndim_super))
+    imgs.super.simple = np.zeros((ndim_super, ndim_super))   
         
     g = np.linspace(-width_arcsec/2.,width_arcsec/2., ndim_super)
     i, j = (np.abs(g - xoffset_arcsec)).argmin(), (np.abs(g - yoffset_arcsec)).argmin()
-    super.simple[j,i] += flux
-    super.hist[j,i] += 1
+    imgs.super.hist[j,i] += 1
+    imgs.super.simple[j,i] += flux
         
     # --- apply PSF to super
 
@@ -368,19 +374,20 @@ def point(flux, filter, target_width_arcsec, resampling_factor = False, pixel_sc
 
     psf = PSF.f(xx, yy)
 
-    super.simple_with_PSF = convolve_fft(super.simple, psf)
-    super.img = super.simple_with_PSF
+
+    imgs.super.data = convolve_fft(imgs.super.simple, psf)
+
 
     # --- resample back pixel scale
 
-    observed = empty()
-    observed.ndim = ndim
-    observed.pixel_scale = pixel_scale
-    observed.simple = rebin(super.simple, (ndim, ndim))
-    observed.simple_with_PSF = rebin(super.simple_with_PSF, (ndim, ndim))
-    observed.img = observed.simple_with_PSF
+    imgs.img = empty()
     
-    return observed, super
+    imgs.img.pixel_scale = pixel_scale
+    
+    imgs.img.no_PSF = rebin(imgs.super.simple, (ndim, ndim))
+    imgs.img.data = rebin(imgs.super.data, (ndim, ndim))
+    
+    return imgs
 
 
 
@@ -390,14 +397,14 @@ def points(fluxes, filters, width_arcsec, resampling_factor = False, pixel_scale
     xoffset_pix = np.random.random() - 0.5 # offset in pixels
     yoffset_pix = np.random.random() - 0.5 # offset in pixels
 
-    imgs = {}
+    IMGs = {}
     
     for filter in filters:
-        imgs[filter] = empty()
-        obs, super = point(fluxes[filter], filter, width_arcsec, resampling_factor = resampling_factor, pixel_scale = pixel_scale, PSF = PSFs[filter], verbose = verbose, xoffset_pix = xoffset_pix, yoffset_pix = yoffset_pix)   
-        imgs[filter].img = obs.img
+        
+        imgs = point(fluxes[filter], filter, width_arcsec, resampling_factor = resampling_factor, pixel_scale = pixel_scale, PSF = PSFs[filter], verbose = verbose, xoffset_pix = xoffset_pix, yoffset_pix = yoffset_pix)   
+        IMGs[filter] = imgs.img
 
-    return imgs
+    return IMGs
 
 
 
