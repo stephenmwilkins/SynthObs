@@ -58,7 +58,7 @@ if do_test:
     ax.get_yaxis().set_ticks([])
     
     
-    ax.imshow(observed.img, interpolation = 'nearest')
+    ax.imshow(observed.img.data, interpolation = 'nearest')
     plt.show()
     
 #     ax.imshow(img[f].img - img[f].img2, interpolation = 'nearest')
@@ -93,7 +93,7 @@ if do_comparison:
         for ax, f in zip(axes.flatten(), filters):
 
             # ax.imshow(np.log10(img[f].img), interpolation = 'nearest')
-            ax.imshow(imgs[f].img, interpolation = 'nearest')
+            ax.imshow(imgs[f].img.data, interpolation = 'nearest')
 
             print('{0}: {1:.2f}'.format(f, np.sum(imgs[f].img))) # total flux in nJy
 
@@ -140,9 +140,9 @@ if do_filter_sets:
 
         Fnu = {f: models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, F, f) for f in filters} # arrays of star particle fluxes in nJy
 
-        imgs = SynthObs.Morph.images.particle(test.X, test.Y, Fnu, filters, cosmo, z, width_arcsec, smoothing = ('adaptive', 8.), verbose = False, PSFs = PSFs, super_sampling = 2)
+        imgs = {f: SynthObs.Morph.images.observed(f, cosmo, z, width_arcsec, smoothing = ('adaptive', 8.), verbose = False, PSF = PSFs[f], super_sampling = 2).particle(test.X, test.Y,Fnu[f]) for f in filters}
         
-        imgs_dithered = SynthObs.Morph.images.particle(test.X, test.Y, Fnu, filters, cosmo, z, width_arcsec, resampling_factor=2, smoothing = ('adaptive', 8.), verbose = False, PSFs = PSFs, super_sampling = 2)
+        imgs_dithered = {f: SynthObs.Morph.images.observed(f, cosmo, z, width_arcsec, resampling_factor=2, smoothing = ('adaptive', 8.), verbose = False, PSF = PSFs[f], super_sampling = 2).particle(test.X, test.Y,Fnu[f]) for f in filters}
         
         
         fig, axes = plt.subplots(2, len(filters), figsize = (len(filters)*2., 4))
@@ -151,17 +151,17 @@ if do_filter_sets:
 
         for i, f in enumerate(filters):
     
-            axes[0, i].imshow(imgs[f].img, interpolation = 'nearest')
-            axes[1, i].imshow(imgs_dithered[f].img, interpolation = 'nearest')
+            axes[0, i].imshow(imgs[f].img.data, interpolation = 'nearest')
+            axes[1, i].imshow(imgs_dithered[f].img.data, interpolation = 'nearest')
     
-            print('{0}: {1:.2f}'.format(f, np.sum(imgs[f].img))) # total flux in nJy
+            print('{0}: {1:.2f}'.format(f, np.sum(imgs[f].img.data))) # total flux in nJy
     
             for j in range(2):
                 axes[j,i].get_xaxis().set_ticks([])
                 axes[j,i].get_yaxis().set_ticks([])
             axes[0,i].text(0.5, 0.85, f.split('.')[-1], fontsize = 15, color='1.0', alpha = 0.3, horizontalalignment='center', verticalalignment='center', transform=axes[0,i].transAxes)
 
-        plt.savefig('f/{0}.pdf'.format(filter_set), dpi = imgs[f].img.shape[0]*2)
+        plt.savefig('{0}.pdf'.format(filter_set))
         plt.show()
         fig.clf()
 

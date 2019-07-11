@@ -178,10 +178,13 @@ class observed():
             print('-'*10)
         
     
-    def particle(self, X, Y, L):
-    
-        X -= np.median(X)
-        Y -= np.median(Y)
+    def particle(self, X, Y, L,centre=None):
+        try:
+            X -= centre[0]
+            Y -= centre[1]
+        except:
+            X -= np.median(X)
+            Y -= np.median(Y)
     
         X += self.xoffset
         Y += self.yoffset
@@ -260,7 +263,7 @@ class observed():
 
 
 
-def particle(X, Y, L, filters, cosmo, z, target_width_arcsec, resampling_factor=False, pixel_scale=False, smoothing = False, PSFs = False, super_sampling = 10, verbose = False, offsets = False):
+def particle(X, Y, L, filters, cosmo, z, target_width_arcsec, resampling_factor=False, pixel_scale=False, smoothing = False, PSFs = False, super_sampling = 10, verbose = False, offsets = False,centre=None):
 
     if offsets:
         xoffset_pix_base = np.random.random() - 0.5 # offset in pixels
@@ -279,7 +282,7 @@ def particle(X, Y, L, filters, cosmo, z, target_width_arcsec, resampling_factor=
         xoffset_pix = xoffset_pix_base * (max_pixel_scale/FLARE.filters.pixel_scale[filter]) 
         yoffset_pix = yoffset_pix_base * (max_pixel_scale/FLARE.filters.pixel_scale[filter]) 
 
-        imgs = observed(filter, cosmo, z, target_width_arcsec, resampling_factor = resampling_factor, pixel_scale = pixel_scale, smoothing = smoothing, PSF = PSFs[filter], super_sampling = super_sampling, verbose = verbose, xoffset_pix = xoffset_pix, yoffset_pix = xoffset_pix).particle(X, Y, L[filter])
+        imgs = observed(filter, cosmo, z, target_width_arcsec, resampling_factor = resampling_factor, pixel_scale = pixel_scale, smoothing = smoothing, PSF = PSFs[filter], super_sampling = super_sampling, verbose = verbose, xoffset_pix = xoffset_pix, yoffset_pix = xoffset_pix).particle(X, Y, L[filter],centre=centre)
 
         IMGs[filter] = imgs.img
 

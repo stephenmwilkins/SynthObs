@@ -110,13 +110,12 @@ for i, f in enumerate(filters):
 
 
 
-fig.savefig('f/morph_PSF_2D.pdf')
+fig.savefig('morph_PSF_2D.pdf')
 fig.clf()
-
 
 if make_profile:
     fig_profile.legend()
-    fig_profile.savefig('f/morph_PSF_COG.pdf')
+    fig_profile.savefig('morph_PSF_COG.pdf')
     fig_profile.clf()
 
 

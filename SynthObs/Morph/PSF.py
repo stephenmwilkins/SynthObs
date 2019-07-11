@@ -60,7 +60,8 @@ class HubblePSF():
     
         self.filter = f
     
-        fn = FLARE_dir + '/data/PSF/Hubble/TinyTim/{0}00.fits'.format(f.split('.')[-1])   
+        fn = FLARE_dir + '/data/PSF/Hubble/TinyTim/sub5/{0}00.fits'.format(f.split('.')[-1])  
+        ##Just a quick fix to get the directory structure right. Need to update to choose between sub1 and sub5
         
         self.data = fits.open(fn)[0].data[1:,1:]
 
