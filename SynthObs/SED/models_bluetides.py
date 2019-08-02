@@ -59,18 +59,18 @@ class define_model():
 
 
 
-def generate_Lnu(model, Masses, Ages, Metallicities, tauVs, F, fesc = 0.0):
+def generate_Lnu(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, fesc = 0.0):
 
     L = {f: 0.0 for f in F['filters']}
 
     for f in F['filters']:
     
-        L[f] = np.sum(generate_Lnu_array(model, Masses, Ages, Metallicities, tauVs, F, f, fesc = fesc))
+        L[f] = np.sum(generate_Lnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, f, fesc = fesc))
 
     return L
 
 
-def generate_Lnu_array(model, Masses, Ages, Metallicities, tauVs, F, f, fesc = 0.0):
+def generate_Lnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, f, fesc = 0.0):
 
     # --- determine dust attenuation
 
@@ -78,7 +78,7 @@ def generate_Lnu_array(model, Masses, Ages, Metallicities, tauVs, F, f, fesc = 0
 
     l = np.zeros(Masses.shape)
 
-    for i, Mass, Age, Metallicity, tauV in zip(np.arange(Masses.shape[0]), Masses, Ages, Metallicities, tauVs):
+    for i, Mass, Age, Metallicity, MetalSurfaceDensity in zip(np.arange(Masses.shape[0]), Masses, Ages, Metallicities, MetSurfaceDensities):
 
         log10age = np.log10(Age) + 6. # log10(age/yr)
         log10Z = np.log10(Metallicity) # log10(Z)
@@ -87,8 +87,10 @@ def generate_Lnu_array(model, Masses, Ages, Metallicities, tauVs, F, f, fesc = 0
         iZ = (np.abs(model.grid['log10Z'] - log10Z)).argmin()
 
         if model.dust:
+
+            tau_V = (10**model.dust['A']) * MetalSurfaceDensity  
             
-            T = np.exp(-(tauV * tau_f)) 
+            T = np.exp(-(tau_V * tau_f)) 
 
         else:
 
@@ -109,18 +111,18 @@ def generate_Lnu_array(model, Masses, Ages, Metallicities, tauVs, F, f, fesc = 0
 
 
 
-def generate_Fnu(model, Masses, Ages, Metallicities, tauVs, F, fesc = 0.0):
+def generate_Fnu(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, fesc = 0.0):
 
     Fnu = {f: 0.0 for f in F['filters']}
 
     for f in F['filters']:
     
-        Fnu[f] = np.sum(generate_Fnu_array(model, Masses, Ages, Metallicities, tauVs, F, f, fesc = fesc))
+        Fnu[f] = np.sum(generate_Fnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, f, fesc = fesc))
 
     return Fnu
 
 
-def generate_Fnu_array(model, Masses, Ages, Metallicities, tauVs, F, f, fesc = 0.0):
+def generate_Fnu_array(model, Masses, Ages, Metallicities, MetSurfaceDensities, F, f, fesc = 0.0):
 
     # --- determine dust attenuation
 
@@ -128,7 +130,7 @@ def generate_Fnu_array(model, Masses, Ages, Metallicities, tauVs, F, f, fesc = 0
 
     l = np.zeros(Masses.shape)
 
-    for i, Mass, Age, Metallicity, tauV in zip(np.arange(Masses.shape[0]), Masses, Ages, Metallicities, tauVs):
+    for i, Mass, Age, Metallicity, MetalSurfaceDensity in zip(np.arange(Masses.shape[0]), Masses, Ages, Metallicities, MetSurfaceDensities):
 
         log10age = np.log10(Age) + 6. # log10(age/yr)
         log10Z = np.log10(Metallicity) # log10(Z)
@@ -137,8 +139,10 @@ def generate_Fnu_array(model, Masses, Ages, Metallicities, tauVs, F, f, fesc = 0
         iZ = (np.abs(model.grid['log10Z'] - log10Z)).argmin()
 
         if model.dust:
+
+            tau_V = (10**model.dust['A']) * MetalSurfaceDensity  
             
-            T = np.exp(-(tauV * tau_f)) 
+            T = np.exp(-(tau_V * tau_f)) 
 
         else:
 
@@ -166,7 +170,7 @@ def generate_Fnu_array(model, Masses, Ages, Metallicities, tauVs, F, f, fesc = 0
 class generate_SED():
 
     
-    def __init__(self, model, Masses, Ages, Metallicities, tauVs, include_intrinsic = True, IGM = False, fesc = 0.0):
+    def __init__(self, model, Masses, Ages, Metallicities, MetSurfaceDensities, include_intrinsic = True, IGM = False, fesc = 0.0):
 
 
         self.model = model
@@ -183,7 +187,7 @@ class generate_SED():
             self.intrinsic_total = core.sed(self.lam)
     
 
-        for Mass, Age, Metallicity, tauV in zip(Masses, Ages, Metallicities, tauVs):
+        for Mass, Age, Metallicity, MetalSurfaceDensity in zip(Masses, Ages, Metallicities, MetSurfaceDensities):
 
 
             log10age = np.log10(Age) + 6. # log10(age/yr)
@@ -194,7 +198,9 @@ class generate_SED():
 
             if self.model.dust:
     
-                tau = tauV * (self.lam/5500.)**self.model.dust['slope']
+                tau_V = (10**self.model.dust['A']) * MetalSurfaceDensity                     
+
+                tau = tau_V * (self.lam/5500.)**self.model.dust['slope']
     
                 T = np.exp(-tau)
     

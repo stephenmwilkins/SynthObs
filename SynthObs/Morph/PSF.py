@@ -3,23 +3,31 @@ import numpy as np
 from astropy.io import fits
 from scipy import interpolate
 
+import matplotlib.pyplot as plt
+
 from ..core import * 
 import FLARE.filters 
 
 from astropy.convolution import convolve, convolve_fft, Gaussian2DKernel
 
+from astropy.modeling import models
 
-def PSFs(filters):
+from skimage.transform import resize
+
+
+
+
+def PSFs(filters, **kwargs):
        
-    return {f:PSF(f) for f in filters}
+    return {f:PSF(f, **kwargs) for f in filters}
 
 
-def PSF(f):
+def PSF(f, **kwargs):
         
-    if f.split('.')[0] == 'HST': psf = HubblePSF(f)
-    if f.split('.')[0] == 'JWST': psf = WebbPSF(f)
-    if f.split('.')[0] == 'Euclid': psf = EuclidPSF(f)
-    if f.split('.')[0] == 'Spitzer': psf = SpitzerPSF(f)
+    if f.split('.')[0] == 'HST': psf = HubblePSF(f, **kwargs)
+    if f.split('.')[0] == 'JWST': psf = WebbPSF(f, **kwargs)
+    if f.split('.')[0] == 'Euclid': psf = EuclidPSF(f, **kwargs)
+    if f.split('.')[0] == 'Spitzer': psf = SpitzerPSF(f, **kwargs)
     
     return psf
 
@@ -56,33 +64,42 @@ def Hubble(filters):
  
 class HubblePSF():
 
-    def __init__(self, f):
+    def __init__(self, f, sub = 5, charge_diffusion = True, verbose = False):
+    
+        if verbose: print('--- PSF')
+        if verbose: print(f)
+        if verbose: print('sub-sampling: {0}'.format(sub))
     
         self.filter = f
     
-        fn = FLARE_dir + '/data/PSF/Hubble/TinyTim/{0}00.fits'.format(f.split('.')[-1])   
+        fn = FLARE_dir + '/data/PSF/Hubble/TinyTim/sub{1}/{0}00.fits'.format(f.split('.')[-1], sub)   
+                
+        hdu = fits.open(fn)
         
-        self.data = fits.open(fn)[0].data[1:,1:]
-
-        charge_diffusion_kernel = np.array([[0.002, 0.038, 0.002],[0.038, 0.840, 0.038],[0.002, 0.038, 0.002]]) # pixels?
+        self.data = hdu[0].data[3:-2,3:-2]
         
-        x = y = np.linspace(-1, 1, 3) # in original pixels
+        if verbose: print('sun(data): {0}'.format(np.sum(self.data)))
+
+        if sub != 1: 
+            
+            self.charge_diffusion_kernel = np.zeros((5,5))
+            self.charge_diffusion_kernel[1:-1,1:-1] = np.array([list(map(float, ' '.join(hdu[0].header[-(3-i)].split(' ')).split())) for i in range(3)])
+
+        if charge_diffusion and sub != 1:
         
-        f_charge_diffusion_kernel= interpolate.interp2d(x, y, charge_diffusion_kernel, kind='linear', fill_value = 0.0)
-        
-        x = y = np.linspace(-3, 3, 31) 
+            resampled_charge_diffusion_kernel = resize(self.charge_diffusion_kernel, (5*sub, 5*sub), anti_aliasing = False)
+            
+            self.data = convolve_fft(self.data, resampled_charge_diffusion_kernel)
 
-        resampled_charge_diffusion_kernel = f_charge_diffusion_kernel(x,y)
+        self.ndim = self.data.shape[0]
 
-        self.convolved_data = convolve(self.data, resampled_charge_diffusion_kernel)
+        self.width = self.ndim*FLARE.filters.pixel_scale[f]/sub # "
 
-        Ndim = self.convolved_data.shape[0]
+        if verbose: print('ndim: {0}'.format(self.ndim))
 
-        
+        x = y = np.linspace(-(self.ndim/2.)/sub, (self.ndim/2.)/sub, self.ndim) # in original pixels
 
-        x = y = np.linspace(-(Ndim/2.)/5., (Ndim/2.)/5., Ndim) # in original pixels
-
-        self.f = interpolate.interp2d(x, y, self.convolved_data, kind='linear', fill_value = 0.0)
+        self.f = interpolate.interp2d(x, y, self.data, kind='linear', fill_value = 0.0)
 
 
  
@@ -142,27 +159,30 @@ class SpitzerPSF():
 
 
 
+class gauss():
+
+    def __init__(self, FWHM):
+
+        self.stddev = FWHM/(2*np.sqrt(2*np.log(2)))
+        
+        self.f = models.Gaussian2D(amplitude=1.0, x_mean=0.0, y_mean=0.0, x_stddev=self.stddev, y_stddev=self.stddev)
+
+
 
 # class gauss():
 # 
-#     def __init__():
+#     def __init__(self, FWHM, sub = 5):
 # 
-#         self.PSF = Gaussian2DKernel(nircfilter/2.355)
-#         # Check if filters is a list or string
-#         # If filters is a list create a PSF for each filter
-#         if isinstance(filters, list):
 # 
-#             for fstring in self.filters:
-# 
-#                 f = fstring.split('.')[-1]
-#                 self.PSFs[fstring] = Gaussian2DKernel(gaussFWHM/2.355)
-# 
-#         # If it is a string create a single PSF for that string
-#         elif isinstance(filters, str):
-# 
-#             # Compute the PSF
-#             nc = webbpsf.NIRCam()  # Assign NIRCam object to variable.
-#             nc.filter = self.filters.split('.')[-1]  # Set filter.
-#             self.PSFs[self.filters] = Gaussian2DKernel(gaussFWHM/2.355)
-# 
-
+#         self.size = 11 # original pixels
+#         self.FWHM = FWHM
+#         self.std = (FWHM/2.355)*sub
+#         self.data = Gaussian2DKernel(self.std, y_stddev=self.std, x_size = self.size*sub, y_size = self.size*sub, mode = 'linear_interp') # in pixels
+#         
+#         print(self.data.shape[0])
+#         
+#         ndim = self.data.shape[0]
+#         
+#         x = y = np.linspace(-(self.size/2.), (self.size/2.), ndim) # in original pixels
+#         
+#         self.f = interpolate.interp2d(x, y, self.data, kind='linear', fill_value = 0.0)

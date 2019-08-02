@@ -12,7 +12,7 @@ import FLARE.filters
 import SynthObs
 from SynthObs.SED import models
 
-import SynthObs.Morph.images_NEW 
+import SynthObs.Morph.images
 import SynthObs.Morph.PSF 
 
 
@@ -44,7 +44,7 @@ if do_test1:
     # smoothing = ('convolved_gaussian', (1.5/h)/(1.+z))
     smoothing = ('adaptive', 8.)
     
-    img, super = SynthObs.Morph.images.observed(f, cosmo, z, width_arcsec, smoothing = smoothing, verbose = True, PSF = PSF).particle(test.X, test.Y, L)
+    imgs = SynthObs.Morph.images.observed(f, cosmo, z, width_arcsec, smoothing = smoothing, verbose = True, PSF = PSF).particle(test.X, test.Y, L)
 
 
 
@@ -52,19 +52,17 @@ if do_test1:
     fig, axes = plt.subplots(1, np, figsize = (4*np,4))
     fig.subplots_adjust(left=0.0, bottom=0.0, right=1.0, top=1.0, wspace=0.0, hspace=0.0)
 
-    axes[0].imshow(super.hist, interpolation = 'nearest')
-    axes[1].imshow(super.simple, interpolation = 'nearest')
-    axes[2].imshow(super.smoothed, interpolation = 'nearest')
-    axes[3].imshow(super.smoothed_with_PSF, interpolation = 'nearest')
-    axes[4].imshow(img.smoothed, interpolation = 'nearest')
-    axes[5].imshow(img.smoothed_with_PSF, interpolation = 'nearest')
+    axes[0].imshow(imgs.super.hist, interpolation = 'nearest')
+    axes[1].imshow(imgs.super.simple, interpolation = 'nearest')
+    axes[2].imshow(imgs.super.no_PSF, interpolation = 'nearest')
+    axes[3].imshow(imgs.super.data, interpolation = 'nearest')
+    axes[4].imshow(imgs.img.no_PSF, interpolation = 'nearest')
+    axes[5].imshow(imgs.img.data, interpolation = 'nearest')
 
     for ax in axes:    
         ax.get_xaxis().set_ticks([])
         ax.get_yaxis().set_ticks([])
 
-
-    plt.savefig('test_images2.pdf')
     plt.show()
     
 

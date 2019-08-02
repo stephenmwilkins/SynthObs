@@ -332,7 +332,7 @@ def point(flux, filter, target_width_arcsec, resampling_factor = False, pixel_sc
         pixel_scale = native_pixel_scale
         resampling_factor = 1.0
 
-    ndim = int(target_width_arcsec/pixel_scale)
+    ndim = int(np.ceil(target_width_arcsec/pixel_scale) // 2 * 2 + 1)
     ndim_super = ndim * super_sampling
 
     width_arcsec = ndim * pixel_scale
@@ -359,6 +359,8 @@ def point(flux, filter, target_width_arcsec, resampling_factor = False, pixel_sc
     imgs = empty()
     
     imgs.super = empty()
+    imgs.super.ndim = ndim_super
+    imgs.super.pixel_scale = pixel_scale/super_sampling
      
     imgs.super.hist = np.zeros((ndim_super, ndim_super))
     imgs.super.simple = np.zeros((ndim_super, ndim_super))   
@@ -370,22 +372,40 @@ def point(flux, filter, target_width_arcsec, resampling_factor = False, pixel_sc
         
     # --- apply PSF to super
 
-    xx = yy = np.linspace(-((width_arcsec/2.)/native_pixel_scale), (width_arcsec/2.)/native_pixel_scale, ndim_super)
+    xx = yy = np.linspace(-(width_arcsec/native_pixel_scale)/2, width_arcsec/native_pixel_scale/2, ndim_super) # native pixel units
 
     psf = PSF.f(xx, yy)
+    
+    psf /= np.sum(psf)
+    
+    # --- renormalise PSF
+    
+    if verbose: print('sum(PSF width): {0:.2f}'.format(PSF.width))
+    
+    d = int(PSF.ndim*width_arcsec/PSF.width/2)
+    c = PSF.ndim // 2
+    psf_data = np.sum(PSF.data[c-d:c+d+1, c-d:c+d+1])/np.sum(PSF.data)
+    if verbose: print('sum(psf_data): {0:.2f}'.format(psf_data))
+    
 
+    if verbose: print('sum(PSF): {0:.2f}'.format(np.sum(psf)))
 
-    imgs.super.data = convolve_fft(imgs.super.simple, psf)
+    imgs.super.data = convolve_fft(imgs.super.simple, psf)*psf_data
 
+    if verbose: print('sum(super.simple): {0:.2f}'.format(np.sum(imgs.super.simple)))
+    if verbose: print('sum(super.data): {0:.2f}'.format(np.sum(imgs.super.data)))
 
     # --- resample back pixel scale
 
     imgs.img = empty()
-    
+    imgs.img.ndim = ndim
     imgs.img.pixel_scale = pixel_scale
     
     imgs.img.no_PSF = rebin(imgs.super.simple, (ndim, ndim))
     imgs.img.data = rebin(imgs.super.data, (ndim, ndim))
+    
+     
+    # imgs.img.data = convolve(imgs.img.data, PSF.charge_diffusion_kernel)
     
     return imgs
 

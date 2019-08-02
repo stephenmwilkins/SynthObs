@@ -47,17 +47,17 @@ if do_test1:
     # p = {'r_eff':  1.0, 'ellip': 0.3, 'theta': 0.0, 'n': 1.}
     #p = {'r_eff':  1.0, 'ellip': 0.3, 'theta': np.pi/4., 'n': 1.5 }
     
-    observed, super = SynthObs.Morph.images.observed(f, cosmo, z, width_arcsec, pixel_scale = pixel_scale, verbose = True, PSF = PSF).Sersic(L, p)
+    imgs = SynthObs.Morph.images.observed(f, cosmo, z, width_arcsec, pixel_scale = pixel_scale, verbose = True, PSF = PSF).Sersic(L, p)
 
     if show:
         npanels = 5
         fig, axes = plt.subplots(1, npanels, figsize = (4*npanels,4))
         fig.subplots_adjust(left=0.0, bottom=0.0, right=1.0, top=1.0, wspace=0.0, hspace=0.0)
 
-        axes[1].imshow(super.simple, interpolation = 'nearest')
-        axes[2].imshow(super.simple_with_PSF, interpolation = 'nearest')
-        axes[3].imshow(observed.simple, interpolation = 'nearest')
-        axes[4].imshow(observed.simple_with_PSF, interpolation = 'nearest')
+        axes[1].imshow(imgs.super.no_PSF, interpolation = 'nearest')
+        axes[2].imshow(imgs.super.data, interpolation = 'nearest')
+        axes[3].imshow(imgs.img.no_PSF, interpolation = 'nearest')
+        axes[4].imshow(imgs.img.data, interpolation = 'nearest')
 
         for ax in axes:    
             ax.get_xaxis().set_ticks([])
@@ -71,11 +71,11 @@ if do_test1:
     # --- measure size
 
 
-    for img, label in zip([super, observed], ['super resolution', 'observed']):
+    for img, label in zip([imgs.super, imgs.img], ['super resolution', 'observed']):
 
         print('-'*10, label)
 
-        data = img.simple_with_PSF
+        data = img.data
 
         ndim = data.shape[0]
 

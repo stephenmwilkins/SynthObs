@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 
 
 model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300') # DEFINE SED GRID - 
-model.dust = {'A': 5.2, 'slope': -1.0} # DEFINE DUST MODEL - these are the calibrated z=8 values for the dust model
+model.dust = {'slope': -1.0} # define dust curve
 
 
 
@@ -26,8 +26,6 @@ model.dust = {'A': 5.2, 'slope': -1.0} # DEFINE DUST MODEL - these are the calib
 # --- read in test data
 
 test = SynthObs.test_data() # --- read in some test data
-
-
 
 
 # --- create observed frame fluxes
@@ -40,7 +38,10 @@ cosmo = FLARE.default_cosmo()
 
 model.create_Fnu_grid(F, z, cosmo) # --- create new Fnu grid for each filter. In units of nJy/M_sol
 
-Fnu = models.generate_Fnu(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, F, fesc = 0.0) # --- calculate rest-frame flux of each object in nJy
+A = 5.2
+test.tauVs = (10**A) * test.MetSurfaceDensities # --- calculate V-band (550nm) optical depth for each star particle
+
+Fnu = models.generate_Fnu(model, test.Masses, test.Ages, test.Metallicities, test.tauVs, F, fesc = 0.0) # --- calculate rest-frame flux of each object in nJy
 
 for f in F['filters']:
     print(f, Fnu[f]) 

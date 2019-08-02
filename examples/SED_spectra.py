@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import SynthObs
 from SynthObs.SED import models
 
+
 import FLARE
 import FLARE.filters
 
@@ -23,7 +24,7 @@ import matplotlib.pyplot as plt
 #  this can take a long time do don't do it for every object
 
 model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300') # DEFINE SED GRID - 
-model.dust = {'A': 5.2, 'slope': -1.0} # DEFINE DUST MODEL - these are the calibrated z=8 values for the dust model
+model.dust = {'slope': -1.0} # define dust curve
 
 fesc = 0.0
 
@@ -31,16 +32,17 @@ fesc = 0.0
 
 test = SynthObs.test_data() # --- read in some test data
 
-
-
+# --- calculate V-band (550nm) optical depth for each star particle
+A = 5.2
+test.tauVs = (10**A) * test.MetSurfaceDensities 
 
 # --- now generate the various SEDs (nebular, stellar, total) [THIS IS IN THE REST-FRAME]
 
-o = models.generate_SED(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, fesc = 1.0)
+o = models.generate_SED(model, test.Masses, test.Ages, test.Metallicities, test.tauVs, fesc = 1.0)
 
 # --- now calculate some broad band photometry [THIS IS IN THE REST-FRAME]
 
-filters = ['FAKE.FAKE.'+f for f in ['1500','2500','V']] # --- define the filters. FAKE.FAKE are just top-hat filters using for extracting rest-frame quantities.
+filters = ['FAKE.TH.'+f for f in ['FUV','NUV','V']] # --- define the filters. FAKE.FAKE are just top-hat filters using for extracting rest-frame quantities.
 
 F = FLARE.filters.add_filters(filters, new_lam = model.lam) 
 

@@ -14,66 +14,63 @@ import SynthObs.Morph.images
 import SynthObs.Morph.PSF 
 
 
-# see http://www.stsci.edu/hst/wfc3/analysis/ir_ee
+
+
+
+
+
+
+
+
+
+
+# https://hst-docs.stsci.edu/display/WFC3IHB/7.6+IR+Optical+Performance
 
 filter = 'HST.WFC3.f160w'
 
-
 print('-'*5, filter)
 
-PSF = SynthObs.Morph.PSF.PSF(filter) # creates a dictionary of instances of the webbPSF class
+sub = 5
 
-show = False
+PSF = SynthObs.Morph.PSF.PSF(filter, sub=5) 
 
-if show:
-    plt.imshow(np.log10(PSF.data))
-    plt.show()
+ndim = PSF.ndim
 
-    plt.imshow(np.log10(PSF.convolved_data))
-    plt.show()
+width = ndim/sub
 
-Ndim = PSF.convolved_data.shape[0]
+x = y = np.linspace(-width/2, width/2., ndim) # in original pixels
 
-x = y = np.linspace(-(Ndim/2.)/5, (Ndim/2.)/5, Ndim) # in original pixels
+psf = PSF.f(x,y)
 
-if show:
-    plt.imshow(np.log10(PSF.f(x,y)))
-    plt.show()
+
+# plt.imshow(np.log10(psf/np.max(psf)), vmin = -4, vmax = 0.0)
+# plt.show()
 
 
 
-centre = (Ndim//2, Ndim//2)
-
-radii_arcsec = np.array([0.15, 0.5])
-radii_sampled_pix = radii_arcsec/(0.13/5.)
-apertures = [CircularAperture(centre, r=r) for r in radii_sampled_pix] #r in pixels
-
-
-for img, label in zip([PSF.data, PSF.convolved_data, PSF.f(x,y)],['raw', 'convolved', 'functional']):
-    print('-'*5, label)
-    phot_table = aperture_photometry(img, apertures) 
-    for i in range(2): print('r={0}" f={1:.2f}'.format(radii_arcsec[i], phot_table[0][3+i]))
+g = np.linspace(-width/2, width/2., ndim) # in original pixels
+xx, yy = np.meshgrid(g, g)  
+PSF = SynthObs.Morph.PSF.gauss(1.176)
+gauss = PSF.f(xx,yy)
+gauss /= np.sum(gauss)
 
 
 
+centre = (ndim//2, ndim//2)
+radii_pix = np.arange(1,100,1)
+apertures = [CircularAperture(centre, r=r) for r in radii_pix] #r in pixels
+
+phot_table = aperture_photometry(psf, apertures) 
+flux_psf = np.array([phot_table[0][3+i] for i in range(len(radii_pix))])
+phot_table = aperture_photometry(gauss, apertures) 
+flux_gauss = np.array([phot_table[0][3+i] for i in range(len(radii_pix))])
 
 
-width_arcsec = 2. # "
-    
-print('-'*5, 'in image')
-    
-observed, super = SynthObs.Morph.images.point(1.0, filter, width_arcsec, pixel_scale = 0.06, verbose = False, PSF = PSF)
 
-img = super
 
-Ndim = img.img.shape[0]
-centre = (Ndim//2, Ndim//2)
-
-radii_arcsec = np.array([0.15, 0.5])
-radii_sampled_pix = radii_arcsec/(img.pixel_scale)
-apertures = [CircularAperture(centre, r=r) for r in radii_sampled_pix] #r in pixels
-phot_table = aperture_photometry(img.img, apertures) 
-for i in range(2): print('r={0}" f={1:.2f}'.format(radii_arcsec[i], phot_table[0][3+i]))
+plt.plot(radii_pix[:-1], flux_psf[1:]-flux_psf[0:-1])
+plt.plot(radii_pix[:-1], (flux_gauss[1:]-flux_gauss[0:-1])*0.5)
+plt.show()
 
 
 

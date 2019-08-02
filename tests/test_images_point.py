@@ -7,6 +7,9 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+
+from astropy.convolution import convolve, convolve_fft, Gaussian2DKernel
+
 import FLARE
 import FLARE.filters
 import SynthObs
@@ -15,7 +18,13 @@ from SynthObs.SED import models
 import SynthObs.Morph.images 
 import SynthObs.Morph.PSF 
 
-
+def rebin(arr, new_shape):
+    shape = (new_shape[0], arr.shape[0] // new_shape[0],
+             new_shape[1], arr.shape[1] // new_shape[1])
+    return arr.reshape(shape).sum(-1).sum(1)
+    
+    
+    
 
 
 filter = 'HST.WFC3.f160w'
@@ -26,23 +35,23 @@ flux = 1.
 
 # ----- BASIC TEST OF ALL THE DIFFERENT IMAGES PRODUCED
 
-do_test1 = True
+do_test1 = False
 
 if do_test1:
 
     width_arcsec = 2. # "
     
-    img, super = SynthObs.Morph.images.point(flux, filter, width_arcsec, verbose = True, PSF = PSF)
+    imgs = SynthObs.Morph.images.point(flux, filter, width_arcsec, verbose = True, PSF = PSF)
 
     npanels = 5
     fig, axes = plt.subplots(1, npanels, figsize = (4*npanels,4))
     fig.subplots_adjust(left=0.0, bottom=0.0, right=1.0, top=1.0, wspace=0.0, hspace=0.0)
 
-    axes[0].imshow(super.hist, interpolation = 'nearest')
-    axes[1].imshow(super.simple, interpolation = 'nearest')
-    axes[2].imshow(super.simple_with_PSF, interpolation = 'nearest')
-    axes[3].imshow(img.simple, interpolation = 'nearest')
-    axes[4].imshow(img.simple_with_PSF, interpolation = 'nearest')
+    axes[0].imshow(imgs.super.hist, interpolation = 'nearest')
+    axes[1].imshow(imgs.super.simple, interpolation = 'nearest')
+    axes[2].imshow(imgs.super.data, interpolation = 'nearest')
+    axes[3].imshow(imgs.img.data, interpolation = 'nearest')
+
 
     for ax in axes:    
         ax.get_xaxis().set_ticks([])
@@ -55,23 +64,23 @@ if do_test1:
 
 # ----- TEST OFFSETS
 
-do_test2 = True
+do_test2 = False
 
 if do_test2:
 
     width_arcsec = 2. # "
     
-    img, super = SynthObs.Morph.images.point(flux, filter, width_arcsec, verbose = True, PSF = PSF, xoffset_pix = 0.0, yoffset_pix = 0.0)
+    imgs = SynthObs.Morph.images.point(flux, filter, width_arcsec, verbose = True, PSF = PSF, xoffset_pix = 0.0, yoffset_pix = 0.0)
 
-    im1 = img.img
+    im1 = imgs.img.data
     
-    img, super = SynthObs.Morph.images.point(flux, filter, width_arcsec, verbose = True, PSF = PSF, xoffset_pix = 1.0, yoffset_pix = 0.0)
+    imgs = SynthObs.Morph.images.point(flux, filter, width_arcsec, verbose = True, PSF = PSF, xoffset_pix = 1.0, yoffset_pix = 0.0)
 
-    im2 = img.img
+    im2 = imgs.img.data
     
-    img, super = SynthObs.Morph.images.point(flux, filter, width_arcsec, verbose = True, PSF = PSF, xoffset_pix = 0.5, yoffset_pix = 0.0)
+    imgs = SynthObs.Morph.images.point(flux, filter, width_arcsec, verbose = True, PSF = PSF, xoffset_pix = 0.5, yoffset_pix = 0.0)
 
-    im3 = img.img
+    im3 = imgs.img.data
     
     R1 = im1 - im2
     R2 = im1 - im3
@@ -97,7 +106,7 @@ if do_test2:
 
 # ----- TEST USING MULTIPLE FILTERS
 
-do_test3 = True
+do_test3 = False
 
 if do_test3:
 
@@ -116,7 +125,7 @@ if do_test3:
 
 
     for i,f in enumerate(filters):
-        axes[i].imshow(imgs[f].img, interpolation = 'nearest')
+        axes[i].imshow(imgs[f].data, interpolation = 'nearest')
 
 
     for ax in axes:    
@@ -141,48 +150,45 @@ if do_test4:
     from photutils import CircularAperture
     from photutils import aperture_photometry
 
-    width_arcsec = 2. # "
+    width_arcsec = 2 # "
+    pixel_scale = 0.06 #
     
-    filters = ['HST.WFC3.f105w','HST.WFC3.f125w','HST.WFC3.f160w']
+    filters = ['HST.ACS.f435w','HST.WFC3.f105w','HST.WFC3.f125w','HST.WFC3.f160w']
     F = FLARE.filters.add_filters(filters) 
-    PSFs = SynthObs.Morph.PSF.PSFs(filters) # creates a dictionary of instances of the webbPSF class
+    PSFs = SynthObs.Morph.PSF.PSFs(filters, sub=5, verbose = True, charge_diffusion = True) # creates a dictionary of instances of the webbPSF class
 
-    
+       
 
     for filter in filters:
     
+        psf = PSFs[filter]
+    
         print('-'*5, filter)
     
-        observed, super = SynthObs.Morph.images.point(1.0, filter, width_arcsec, verbose = True, PSF = PSFs[filter])
+        imgs = SynthObs.Morph.images.point(1.0, filter, width_arcsec, verbose = False, pixel_scale = pixel_scale, PSF = PSFs[filter], super_sampling = 5)
         
-        img = observed
+        img = imgs.img
         
-        Ndim = img.img.shape[0]
+        # --- ensquared energy
+                    
+        cx = img.ndim//2   
+        print('central pixel: {0}'.format(cx))     
+        for i in range(3):    
+            print('{0}: {1:.2f}'.format(i*2+1, np.sum(img.data[cx-i:cx+i+1, cx-i:cx+i+1])))      
 
-        centre = (Ndim//2, Ndim//2)
-
         
+        # --- encircled energy
+        
+        centre = (img.ndim//2, img.ndim//2)   
         radii_arcsec = np.array([0.15, 0.5])
         radii_sampled_pix = radii_arcsec/(img.pixel_scale)
         apertures = [CircularAperture(centre, r=r) for r in radii_sampled_pix] #r in pixels
-        phot_table = aperture_photometry(img.img, apertures) 
+        phot_table = aperture_photometry(img.data, apertures) 
     
         for i in range(2): print('r={0}" f={1:.2f}'.format(radii_arcsec[i], phot_table[0][3+i]))
     
         
-#         
-#         radii_arcsec = np.arange(0.01, 3.1, 0.01)
-#         radii_sampled_pix = radii_arcsec/(img.pixel_scale)
-# 
-#         apertures = [CircularAperture(centre, r=r) for r in radii_sampled_pix] #r in pixels
-#     
-#         phot_table = aperture_photometry(img.img, apertures) 
-#     
-#         frac = np.array([phot_table[0][3+i] for i in range(len(radii_arcsec))])
-#     
-#         for efrac in [0.5, 0.8]:
-#             print('EE(f={0}): {1:0.2f}"'.format(efrac, np.interp(efrac, frac, radii_arcsec)))
-#     
+    
 
 
 

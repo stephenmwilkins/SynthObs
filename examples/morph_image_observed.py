@@ -23,8 +23,14 @@ z = 8.
 
 test = SynthObs.test_data() # --- read in some test data
 
+# --- calculate V-band (550nm) optical depth for each star particle
+A = 5.2
+test.tauVs = (10**A) * test.MetSurfaceDensities 
+
+
+
 model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300') # DEFINE SED GRID - 
-model.dust = {'A': 5.2, 'slope': -1.0} # DEFINE DUST MODEL - these are the calibrated z=8 values for the dust model
+model.dust = {'slope': -1.0} # define dust curve
 
 
 
@@ -46,9 +52,9 @@ if do_test:
 
     model.create_Fnu_grid(F, z, cosmo)
 
-    Fnu = models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, F, f) 
+    Fnu = models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallicities, test.tauVs, F, f) 
 
-    observed, super = SynthObs.Morph.images.observed(f, cosmo, z, width_arcsec, smoothing = ('adaptive', 8.), verbose = True, PSF = PSF, super_sampling = 2).particle(test.X, test.Y, Fnu)
+    imgs = SynthObs.Morph.images.observed(f, cosmo, z, width_arcsec, smoothing = ('adaptive', 8.), verbose = True, PSF = PSF, super_sampling = 2).particle(test.X, test.Y, Fnu)
 
 
     fig, ax = plt.subplots(1, 1, figsize = (5,5))
@@ -58,17 +64,15 @@ if do_test:
     ax.get_yaxis().set_ticks([])
     
     
-    ax.imshow(observed.img, interpolation = 'nearest')
+    ax.imshow(imgs.img.data, interpolation = 'nearest')
     plt.show()
     
-#     ax.imshow(img[f].img - img[f].img2, interpolation = 'nearest')
-#     plt.show()
 
 
 
 
 
-do_comparison = False
+do_comparison = True
 
 if do_comparison:
 
@@ -82,7 +86,7 @@ if do_comparison:
 
         model.create_Fnu_grid(F, z, cosmo)
 
-        Fnu = {f: models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, F, f) for f in filters} # arrays of star particle fluxes in nJy
+        Fnu = {f: models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallicities, test.tauVs, F, f) for f in filters} # arrays of star particle fluxes in nJy
 
         imgs = SynthObs.Morph.images.particle(test.X, test.Y, Fnu, filters, cosmo, z, width_arcsec, smoothing = ('adaptive', 8.), verbose = True, PSFs = PSFs, super_sampling = 2)
 
@@ -92,10 +96,9 @@ if do_comparison:
 
         for ax, f in zip(axes.flatten(), filters):
 
-            # ax.imshow(np.log10(img[f].img), interpolation = 'nearest')
-            ax.imshow(imgs[f].img, interpolation = 'nearest')
+            ax.imshow(imgs[f].data, interpolation = 'nearest')
 
-            print('{0}: {1:.2f}'.format(f, np.sum(imgs[f].img))) # total flux in nJy
+            print('{0}: {1:.2f}'.format(f, np.sum(imgs[f].data))) # total flux in nJy
 
             ax.get_xaxis().set_ticks([])
             ax.get_yaxis().set_ticks([])
@@ -138,7 +141,7 @@ if do_filter_sets:
 
         model.create_Fnu_grid(F, z, cosmo)
 
-        Fnu = {f: models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, F, f) for f in filters} # arrays of star particle fluxes in nJy
+        Fnu = {f: models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallicities, test.tauVs, F, f) for f in filters} # arrays of star particle fluxes in nJy
 
         imgs = SynthObs.Morph.images.particle(test.X, test.Y, Fnu, filters, cosmo, z, width_arcsec, smoothing = ('adaptive', 8.), verbose = False, PSFs = PSFs, super_sampling = 2)
         
@@ -151,17 +154,17 @@ if do_filter_sets:
 
         for i, f in enumerate(filters):
     
-            axes[0, i].imshow(imgs[f].img, interpolation = 'nearest')
-            axes[1, i].imshow(imgs_dithered[f].img, interpolation = 'nearest')
+            axes[0, i].imshow(imgs[f].data, interpolation = 'nearest')
+            axes[1, i].imshow(imgs_dithered[f].data, interpolation = 'nearest')
     
-            print('{0}: {1:.2f}'.format(f, np.sum(imgs[f].img))) # total flux in nJy
+            print('{0}: {1:.2f}'.format(f, np.sum(imgs[f].data))) # total flux in nJy
     
             for j in range(2):
                 axes[j,i].get_xaxis().set_ticks([])
                 axes[j,i].get_yaxis().set_ticks([])
             axes[0,i].text(0.5, 0.85, f.split('.')[-1], fontsize = 15, color='1.0', alpha = 0.3, horizontalalignment='center', verticalalignment='center', transform=axes[0,i].transAxes)
 
-        plt.savefig('f/{0}.pdf'.format(filter_set), dpi = imgs[f].img.shape[0]*2)
+        plt.savefig('f/{0}.pdf'.format(filter_set), dpi = imgs[f].data.shape[0]*2)
         plt.show()
         fig.clf()
 

@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 
 
 model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300') # DEFINE SED GRID - 
-model.dust = {'A': 5.2, 'slope': -1.0} # DEFINE DUST MODEL - these are the calibrated z=8 values for the dust model
+model.dust = {'slope': -1.0} # define dust curve
 
 
 
@@ -30,13 +30,17 @@ test = SynthObs.test_data() # --- read in some test data
 
 # --- create rest-frame luminosities
 
-filters = ['FAKE.FAKE.'+f for f in ['1500','2500']] # --- define the filters. FAKE.FAKE are just top-hat filters using for extracting rest-frame quantities.
+filters = ['FAKE.TH.'+f for f in ['FUV','NUV']] # --- define the filters. FAKE.FAKE are just top-hat filters using for extracting rest-frame quantities.
 
 F = FLARE.filters.add_filters(filters, new_lam = model.lam) 
 
 model.create_Lnu_grid(F) # --- create new L grid for each filter. In units of erg/s/Hz
 
-Lnu = models.generate_Lnu(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, F, fesc = 1.0) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
+
+
+A = 5.2
+test.tauVs = (10**A) * test.MetSurfaceDensities # --- calculate V-band (550nm) optical depth for each star particle
+Lnu = models.generate_Lnu(model, test.Masses, test.Ages, test.Metallicities, test.tauVs, F, fesc = 1.0) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
 
 for f in F['filters']:
     print(f, Lnu[f])
