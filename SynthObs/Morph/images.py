@@ -332,7 +332,10 @@ def point(flux, filter, target_width_arcsec, resampling_factor = False, pixel_sc
         pixel_scale = native_pixel_scale
         resampling_factor = 1.0
 
-    ndim = int(np.ceil(target_width_arcsec/pixel_scale) // 2 * 2 + 1)
+    # ndim = int(np.ceil(target_width_arcsec/pixel_scale) // 2 * 2 + 1) # forces odd number?
+    
+    ndim = int(target_width_arcsec/pixel_scale)
+    
     ndim_super = ndim * super_sampling
 
     width_arcsec = ndim * pixel_scale
