@@ -407,6 +407,8 @@ def point(flux, filter, target_width_arcsec, resampling_factor = False, pixel_sc
     imgs.img.no_PSF = rebin(imgs.super.simple, (ndim, ndim))
     imgs.img.data = rebin(imgs.super.data, (ndim, ndim))
     
+    imgs.img.data /= np.sum(imgs.img.data)
+    imgs.img.data *= flux
      
     # imgs.img.data = convolve(imgs.img.data, PSF.charge_diffusion_kernel)
     
