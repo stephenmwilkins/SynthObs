@@ -37,11 +37,11 @@ for smoothing in [False, ('convolved_gaussian', 0.2), ('adaptive', 16)]:
     fig, axes = plt.subplots(1, N, figsize = (N*2., 2))
     fig.subplots_adjust(left=0.0, bottom=0.0, right=1.0, top=1.0, wspace=0.0, hspace=0.0)
 
-    mass_label = r'$\rm log_{{10}}(M^{{*}}/M_{{\odot}})={0:9.2f}$'.format(np.log10(np.sum(imgs['mass'].img.data)))
-    sf_label = r'$\rm SFR_{{10}}/(M_{{\odot}}\ yr^{{-1}})={0:9.1f}$'.format(np.sum(imgs['sfr'].img.data)/1E7)
+    mass_label = r'$\rm log_{{10}}(M^{{*}}/M_{{\odot}})={0:9.2f}$'.format(np.log10(np.sum(imgs['mass'].data)))
+    sf_label = r'$\rm SFR_{{10}}/(M_{{\odot}}\ yr^{{-1}})={0:9.1f}$'.format(np.sum(imgs['sfr'].data)/1E7)
 
     for i, f, label, cm, info in zip(range(2), ['mass', 'sfr'], [r'$\rm\bf M^{\star}$', r'$\rm\bf recent\ SF$'], ['viridis','inferno'], [mass_label, sf_label]):   
-        axes[i].imshow(imgs[f].img.data, cmap = cm)   
+        axes[i].imshow(imgs[f].data, cmap = cm)   
         axes[i].get_xaxis().set_ticks([])
         axes[i].get_yaxis().set_ticks([])
         axes[i].text(0.5, 0.9, f, fontsize = 10, color='1.0', alpha = 1.0, horizontalalignment='center', verticalalignment='center', transform=axes[i].transAxes)
