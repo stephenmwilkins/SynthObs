@@ -11,6 +11,11 @@ import SynthObs
 import SynthObs.Morph.images  
 
 
+savefile = False
+if len(sys.argv)>1:
+    savefile = sys.argv[1] 
+
+
 resolution = 0.1 # pkpc
 ndim = 50
 
@@ -49,7 +54,10 @@ for smoothing in [False, ('convolved_gaussian', 0.2), ('adaptive', 16)]:
         axes[i].axvline(ndim-0.5, c='1.0', lw=1, alpha = 0.2)
         axes[i].text(0.5, 0.1, info, fontsize = 7, color='1.0', alpha = 1.0, horizontalalignment='center', verticalalignment='center', transform=axes[i].transAxes)
 
-    plt.show()
+    if savefile:
+        fig.savefig(f'{savefile}_{smoothing}.png')
+    else:
+        plt.show()
 
 
 
