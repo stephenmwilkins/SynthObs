@@ -224,10 +224,131 @@ class generate_SED():
 
         
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class EmissionLines():
+
+    def __init__(self, SPSIMF, dust = False, verbose = True):
+    
+        self.SPSIMF = SPSIMF
+    
+        self.grid = pickle.load(open(FLARE_dir + f'/data/SPS/nebular/2.0/Z_refQ/{SPSIMF}/lines.p','rb'), encoding='latin1')  # --- open grid            
         
+        self.lines = self.grid['lines']
+        
+        self.lam = {l: self.grid[l]['lam'] for l in self.lines}
+        
+        self.lams = np.array([self.lam[l] for l in self.lines])
+        
+        if verbose:  
+            print('Available lines:')
+            for lam,line in sorted(zip(self.lams,self.lines)): print(f'{line}')
+        
+        
+        self.dust = dust
+        
+        self.units = {'luminosity': 'erg/s', 'nebular_continuum': 'erg/s/Hz', 'stellar_continuum': 'erg/s/Hz', 'total_continuum': 'erg/s/Hz', 'EW': 'AA'}
+    
+    
+        
+    
+
+    def get_line_luminosity(self, line, Masses, Ages, Metallicities, tauVs = False, fesc = False, verbose = False):
+    
+    
+        if type(line) is not list: line = [line]
+    
+        if type(tauVs) is not np.ndarray: 
+            tauVs = np.zeros(Masses.shape)
+            if verbose: 'WARNING: no optical depths provided, quantities will be intrinsic!'
+        
+        if not self.dust:
+            if verbose: 'WARNING: no dust model specified, quantities will be intrinsic!'
+        
+        
+        lam = np.mean([self.grid[l]['lam'] for l in line])
+        
+        if verbose: 
+            print(f'----- {line}')
+            print(f'line wavelength/\AA: {lam}')
+        
+        
+        l_types = ['luminosity', 'nebular_continuum', 'stellar_continuum', 'total_continuum']
+        
+        o = {l_type: 0.0 for l_type in l_types} # output dictionary
+#         o['lam'] = lam
+#         o['line'] = line
+        
+        
+        
+        for Mass, Age, Metallicity, tauV in zip(Masses, Ages, Metallicities, tauVs):
+
+            log10age = np.log10(Age) + 6. # log10(age/yr)
+            log10Z = np.log10(Metallicity) # log10(Z)
+        
+            # --- determine dust attenuation
+
+            if self.dust:
+    
+                tau = tauV * (lam/5500.)**self.dust['slope']
+    
+                T = np.exp(-tau)
+    
+            else:
+    
+                T = 1.0
+    
+    
+            # --- determine closest SED grid point 
+
+            ia = (np.abs(self.grid['log10age'] - log10age)).argmin()
+            iZ = (np.abs(self.grid['log10Z'] - log10Z)).argmin()
+ 
+            for l in line:
+                for l_type in l_types:
+                    if l_type == 'luminosity':
+                        o[l_type] += Mass * T * 10**self.grid[l][l_type][ia, iZ] # erg/s
+                    else:
+                        o[l_type] += Mass * T * self.grid[l][l_type][ia, iZ] # erg/s
+ 
+        if fesc: 
+            for l_type in l_types: o[l_type] *= 1-fesc
             
+            
+        total_continuum = (o['total_continuum']/float(len(line)))*(3E8)/((lam/float(len(line)))**2*1E-10)
+
+        o['EW'] = o['luminosity']/total_continuum
         
+        if verbose: 
+            for k,v in o.items(): print(f'log10({k}/{self.units[k]}): {np.log10(v):.2f}')
         
+        return o
+      
+
+
+
+
+
+
+        
+  
 
 
         
