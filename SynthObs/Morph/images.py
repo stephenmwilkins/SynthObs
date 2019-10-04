@@ -237,7 +237,7 @@ class observed():
 
         # --- apply PSF to super
 
-        xx = yy = np.linspace(-(self.width_arcsec/self.native_pixel_scale/2.), (self.width_arcsec/self.native_pixel_scale/2.), self.ndim_super)
+        xx = yy = np.linspace(-(self.width_arcsec/self.pixel_scale/2.), (self.width_arcsec/self.pixel_scale/2.), self.ndim_super)
 
         psf = self.PSF.f(xx, yy)
 
