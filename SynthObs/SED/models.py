@@ -6,7 +6,7 @@ import pickle
 
 class empty(): pass
 
-from ..core import * 
+from ..core import *
 
 from FLARE.SED import core
 from FLARE.SED import IGM
@@ -15,46 +15,46 @@ from FLARE.SED import IGM
 
 class define_model():
 
-    def __init__(self, grid, path_to_SPS_grid = FLARE_dir + '/data/SPS/nebular/1.0/Z/', dust = False):
-    
+    def __init__(self, grid, path_to_SPS_grid = FLARE_dir + '/data/SPS/nebular/2.0/Z_refQ/', dust = False):
+
         self.grid = pickle.load(open(path_to_SPS_grid + grid + '/nebular.p','rb'), encoding='latin1')
 
         self.lam = self.grid['lam']
 
         self.dust = dust
-        
+
 
     def create_Lnu_grid(self, F):
-    
+
         self.Lnu = {}
-    
+
         for f in F['filters']:
-        
+
             # self.Lnu[f] = np.trapz(np.multiply(self.grid['nebular'] + self.grid['stellar'], F[f].T), x = F[f].lam, axis = 2)/np.trapz(F[f].T, x = F[f].lam)
-        
+
             self.Lnu[f] = empty()
-            
+
             self.Lnu[f].stellar = np.trapz(np.multiply(self.grid['stellar'], F[f].T), x = F[f].lam, axis = 2)/np.trapz(F[f].T, x = F[f].lam)
             self.Lnu[f].nebular = np.trapz(np.multiply(self.grid['nebular'], F[f].T), x = F[f].lam, axis = 2)/np.trapz(F[f].T, x = F[f].lam)
-        
-            
-        
+
+
+
     def create_Fnu_grid(self, F, z, cosmo):
-    
+
         self.Fnu = {}
-    
+
         self.Fnu['z'] = z
-    
+
         luminosity_distance = cosmo.luminosity_distance(z).to('cm').value
-    
+
         for f in F['filters']:
-            
+
             self.Fnu[f] = empty()
-            
+
             self.Fnu[f].stellar = 1E23 * 1E9 * np.trapz(np.multiply((self.grid['stellar'])*IGM.madau(F[f].lam, z), F[f].T), x = F[f].lam, axis = 2)/np.trapz(F[f].T, x = F[f].lam) * (1.+z) / (4. * np.pi * luminosity_distance**2)
             self.Fnu[f].nebular = 1E23 * 1E9 * np.trapz(np.multiply((self.grid['nebular'])*IGM.madau(F[f].lam, z), F[f].T), x = F[f].lam, axis = 2)/np.trapz(F[f].T, x = F[f].lam) * (1.+z) / (4. * np.pi * luminosity_distance**2)
-        
-            
+
+
 
 
 
@@ -64,7 +64,7 @@ def generate_Lnu(model, Masses, Ages, Metallicities, tauVs, F, fesc = 0.0):
     L = {f: 0.0 for f in F['filters']}
 
     for f in F['filters']:
-    
+
         L[f] = np.sum(generate_Lnu_array(model, Masses, Ages, Metallicities, tauVs, F, f, fesc = fesc))
 
     return L
@@ -87,19 +87,19 @@ def generate_Lnu_array(model, Masses, Ages, Metallicities, tauVs, F, f, fesc = 0
         iZ = (np.abs(model.grid['log10Z'] - log10Z)).argmin()
 
         if model.dust:
-            
-            T = np.exp(-(tauV * tau_f)) 
+
+            T = np.exp(-(tauV * tau_f))
 
         else:
 
             T = 1.0
 
-        # --- determine closest SED grid point 
+        # --- determine closest SED grid point
 
         l[i] = Mass * T * (model.Lnu[f].stellar[ia, iZ] + (1.-fesc)*model.Lnu[f].nebular[ia, iZ]) # erg/s/Hz
 
         # --- use interpolation [this appears to make a difference at the low-% level, far below other systematic uncertainties]
-    
+
         # p = {'log10age': log10age, 'log10Z': log10Z}
         # params = [[np.interp(p[parameter], model.grid[parameter], range(len(model.grid[parameter])))] for parameter in ['log10age','log10Z']] # used in interpolation
         # L[f] +=  Mass * T * ndimage.map_coordinates(model.L[f], params, order=1)[0]
@@ -114,7 +114,7 @@ def generate_Fnu(model, Masses, Ages, Metallicities, tauVs, F, fesc = 0.0):
     Fnu = {f: 0.0 for f in F['filters']}
 
     for f in F['filters']:
-    
+
         Fnu[f] = np.sum(generate_Fnu_array(model, Masses, Ages, Metallicities, tauVs, F, f, fesc = fesc))
 
     return Fnu
@@ -137,21 +137,21 @@ def generate_Fnu_array(model, Masses, Ages, Metallicities, tauVs, F, f, fesc = 0
         iZ = (np.abs(model.grid['log10Z'] - log10Z)).argmin()
 
         if model.dust:
-            
-            T = np.exp(-(tauV * tau_f)) 
+
+            T = np.exp(-(tauV * tau_f))
 
         else:
 
             T = 1.0
 
-        # --- determine closest SED grid point 
+        # --- determine closest SED grid point
 
-        # l[i] = Mass * T * model.Fnu[f][ia, iZ] 
-        
+        # l[i] = Mass * T * model.Fnu[f][ia, iZ]
+
         l[i] = Mass * T * (model.Fnu[f].stellar[ia, iZ] + (1.-fesc)*model.Fnu[f].nebular[ia, iZ]) # erg/s/Hz
 
         # --- use interpolation [this appears to make a difference at the low-% level, far below other systematic uncertainties]
-    
+
         # p = {'log10age': log10age, 'log10Z': log10Z}
         # params = [[np.interp(p[parameter], model.grid[parameter], range(len(model.grid[parameter])))] for parameter in ['log10age','log10Z']] # used in interpolation
         # L[f] +=  Mass * T * ndimage.map_coordinates(model.L[f], params, order=1)[0]
@@ -165,7 +165,7 @@ def generate_Fnu_array(model, Masses, Ages, Metallicities, tauVs, F, f, fesc = 0
 
 class generate_SED():
 
-    
+
     def __init__(self, model, Masses, Ages, Metallicities, tauVs, include_intrinsic = True, IGM = False, fesc = 0.0):
 
 
@@ -175,39 +175,39 @@ class generate_SED():
         self.stellar = core.sed(self.lam)
         self.nebular = core.sed(self.lam)
         self.total = core.sed(self.lam)
-    
+
         if include_intrinsic:
-    
+
             self.intrinsic_stellar = core.sed(self.lam)
             self.intrinsic_nebular = core.sed(self.lam)
             self.intrinsic_total = core.sed(self.lam)
-    
+
 
         for Mass, Age, Metallicity, tauV in zip(Masses, Ages, Metallicities, tauVs):
 
 
             log10age = np.log10(Age) + 6. # log10(age/yr)
             log10Z = np.log10(Metallicity) # log10(Z)
-        
+
 
             # --- determine dust attenuation
 
             if self.model.dust:
-    
+
                 tau = tauV * (self.lam/5500.)**self.model.dust['slope']
-    
+
                 T = np.exp(-tau)
-    
+
             else:
-    
+
                 T = 1.0
-    
-    
-            # --- determine closest SED grid point 
+
+
+            # --- determine closest SED grid point
 
             ia = (np.abs(self.model.grid['log10age'] - log10age)).argmin()
             iZ = (np.abs(self.model.grid['log10Z'] - log10Z)).argmin()
- 
+
             self.stellar.lnu += Mass * T * self.model.grid['stellar'][ia, iZ] # erg/s/Hz
             self.nebular.lnu += Mass * T * self.model.grid['nebular'][ia, iZ] # erg/s/Hz
 
@@ -219,10 +219,10 @@ class generate_SED():
 
 
         self.total.lnu = self.stellar.lnu + (1-fesc) * self.nebular.lnu # erg/s/Hz
-        
+
         if include_intrinsic: self.intrinsic_total.lnu = self.intrinsic_stellar.lnu + self.intrinsic_nebular.lnu # erg/s/Hz
 
-        
+
 
 
 
@@ -246,110 +246,97 @@ class generate_SED():
 class EmissionLines():
 
     def __init__(self, SPSIMF, dust = False, verbose = True):
-    
+
         self.SPSIMF = SPSIMF
-    
-        self.grid = pickle.load(open(FLARE_dir + f'/data/SPS/nebular/2.0/Z_refQ/{SPSIMF}/lines.p','rb'), encoding='latin1')  # --- open grid            
-        
+
+        self.grid = pickle.load(open(FLARE_dir + f'/data/SPS/nebular/2.0/Z_refQ/{SPSIMF}/lines.p','rb'), encoding='latin1')  # --- open grid
+
         self.lines = self.grid['lines']
-        
+
         self.lam = {l: self.grid[l]['lam'] for l in self.lines}
-        
+
         self.lams = np.array([self.lam[l] for l in self.lines])
-        
-        if verbose:  
+
+        if verbose:
             print('Available lines:')
             for lam,line in sorted(zip(self.lams,self.lines)): print(f'{line}')
-        
-        
+
+
         self.dust = dust
-        
+
         self.units = {'luminosity': 'erg/s', 'nebular_continuum': 'erg/s/Hz', 'stellar_continuum': 'erg/s/Hz', 'total_continuum': 'erg/s/Hz', 'EW': 'AA'}
-    
-    
-        
-    
+
+
+
+
 
     def get_line_luminosity(self, line, Masses, Ages, Metallicities, tauVs = False, fesc = False, verbose = False):
-    
-    
+
+
         if type(line) is not list: line = [line]
-    
-        if type(tauVs) is not np.ndarray: 
+
+        if type(tauVs) is not np.ndarray:
             tauVs = np.zeros(Masses.shape)
             if verbose: 'WARNING: no optical depths provided, quantities will be intrinsic!'
-        
+
         if not self.dust:
             if verbose: 'WARNING: no dust model specified, quantities will be intrinsic!'
-        
-        
+
+
         lam = np.mean([self.grid[l]['lam'] for l in line])
-        
-        if verbose: 
+
+        if verbose:
             print(f'----- {line}')
             print(f'line wavelength/\AA: {lam}')
-        
-        
+
+
         l_types = ['luminosity', 'nebular_continuum', 'stellar_continuum', 'total_continuum']
-        
+
         o = {l_type: 0.0 for l_type in l_types} # output dictionary
 #         o['lam'] = lam
 #         o['line'] = line
-        
-        
-        
+
+
+
         for Mass, Age, Metallicity, tauV in zip(Masses, Ages, Metallicities, tauVs):
 
             log10age = np.log10(Age) + 6. # log10(age/yr)
             log10Z = np.log10(Metallicity) # log10(Z)
-        
+
             # --- determine dust attenuation
 
             if self.dust:
-    
+
                 tau = tauV * (lam/5500.)**self.dust['slope']
-    
+
                 T = np.exp(-tau)
-    
+
             else:
-    
+
                 T = 1.0
-    
-    
-            # --- determine closest SED grid point 
+
+
+            # --- determine closest SED grid point
 
             ia = (np.abs(self.grid['log10age'] - log10age)).argmin()
             iZ = (np.abs(self.grid['log10Z'] - log10Z)).argmin()
- 
+
             for l in line:
                 for l_type in l_types:
                     if l_type == 'luminosity':
                         o[l_type] += Mass * T * 10**self.grid[l][l_type][ia, iZ] # erg/s
                     else:
                         o[l_type] += Mass * T * self.grid[l][l_type][ia, iZ] # erg/s
- 
-        if fesc: 
+
+        if fesc:
             for l_type in l_types: o[l_type] *= 1-fesc
-            
-            
+
+
         total_continuum = (o['total_continuum']/float(len(line)))*(3E8)/((lam/float(len(line)))**2*1E-10)
 
         o['EW'] = o['luminosity']/total_continuum
-        
-        if verbose: 
+
+        if verbose:
             for k,v in o.items(): print(f'log10({k}/{self.units[k]}): {np.log10(v):.2f}')
-        
+
         return o
-      
-
-
-
-
-
-
-        
-  
-
-
-        
- 
