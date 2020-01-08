@@ -224,7 +224,7 @@ class EmissionLines():
 
         self.SPSIMF = SPSIMF
 
-        self.grid = pickle.load(open(FLARE_dir + f'/data/SPS/nebular/2.0/Z_refQ_wdust/{SPSIMF}/lines.p','rb'), encoding='latin1')  # --- open grid
+        self.grid = pickle.load(open(FLARE_dir + f'/data/SPS/nebular/2.0/Z_refQ/{SPSIMF}/lines.p','rb'), encoding='latin1')  # --- open grid
 
         self.lines = self.grid['lines']
 
@@ -236,31 +236,26 @@ class EmissionLines():
             print('Available lines:')
             for lam,line in sorted(zip(self.lams,self.lines)): print(f'{line}')
 
+
         self.dust = dust
-        self.units = {'luminosity': 'erg/s', 'nebular_continuum': 'erg/s/Hz', 'stellar_incident_continuum': 'erg/s/Hz', 'stellar_transmitted_continuum': 'erg/s/Hz', 'continuum': 'erg/s/Hz', 'EW': 'AA'}
+
+        self.units = {'luminosity': 'erg/s', 'nebular_continuum': 'erg/s/Hz', 'stellar_continuum': 'erg/s/Hz', 'total_continuum': 'erg/s/Hz', 'EW': 'AA'}
 
 
-    def get_line_luminosities(self, lines, Masses, Ages, Metallicities, tauVs = False, fesc = 0.0, log10t_BC = 7., verbose = False):
-
-        print('--- calculate quantities for multiple emission lines')
-        print(lines)
-        o = {}
-        for line in lines:
-            o[line] = self.get_line_luminosity(line, Masses, Ages, Metallicities, tauVs = tauVs, fesc = fesc, log10t_BC = log10t_BC, verbose = verbose)
-
-        return o
 
 
-    def get_line_luminosity(self, line, Masses, Ages, Metallicities, tauVs = False, fesc = 0.0, log10t_BC = 7., verbose = False):
 
-        line = line.split(',')
+    def get_line_luminosity(self, line, Masses, Ages, Metallicities, tauVs = False, fesc = False, verbose = False):
+
+
+        if type(line) is not list: line = [line]
 
         if type(tauVs) is not np.ndarray:
             tauVs = np.zeros(Masses.shape)
-            if verbose: 'WARNING: no optical depths provided, quantities will not include ISM attenuation!'
+            if verbose: 'WARNING: no optical depths provided, quantities will be intrinsic!'
 
         if not self.dust:
-            if verbose: 'WARNING: no dust model specified, quantities will not include ISM attenuation!'
+            if verbose: 'WARNING: no dust model specified, quantities will be intrinsic!'
 
 
         lam = np.mean([self.grid[l]['lam'] for l in line])
@@ -269,37 +264,50 @@ class EmissionLines():
             print(f'----- {line}')
             print(f'line wavelength/\AA: {lam}')
 
-        o = {t: 0.0 for t in ['luminosity','continuum']} # output dictionary
+
+        l_types = ['luminosity', 'nebular_continuum', 'stellar_continuum', 'total_continuum']
+
+        o = {l_type: 0.0 for l_type in l_types} # output dictionary
+#         o['lam'] = lam
+#         o['line'] = line
+
+
 
         for Mass, Age, Metallicity, tauV in zip(Masses, Ages, Metallicities, tauVs):
 
             log10age = np.log10(Age) + 6. # log10(age/yr)
             log10Z = np.log10(Metallicity) # log10(Z)
 
+            # --- determine dust attenuation
 
-            # --- determine closest SED grid point
-            ia = (np.abs(self.grid['log10age'] - log10age)).argmin()
-            iZ = (np.abs(self.grid['log10Z'] - log10Z)).argmin()
-
-            # --- determine ISM dust attenuation
             if self.dust:
+
                 tau = tauV * (lam/5500.)**self.dust['slope']
+
                 T = np.exp(-tau)
+
             else:
+
                 T = 1.0
 
 
-            if log10age < log10t_BC:
-                for l in line:
-                    o['luminosity'] += Mass * T * (1.-fesc) * 10**self.grid[l]['luminosity'][ia, iZ] # erg/s
-                    o['continuum'] += Mass * T * (fesc*self.grid[l]['stellar_incident_continuum'][ia, iZ] + (1-fesc)*(self.grid[l]['stellar_transmitted_continuum'][ia, iZ] + self.grid[l]['nebular_continuum'][ia, iZ])) # erg/s
-            else:
-                for l in line:
-                    o['continuum'] += Mass * T * self.grid[l]['stellar_incident_continuum'][ia, iZ]
+            # --- determine closest SED grid point
+
+            ia = (np.abs(self.grid['log10age'] - log10age)).argmin()
+            iZ = (np.abs(self.grid['log10Z'] - log10Z)).argmin()
+
+            for l in line:
+                for l_type in l_types:
+                    if l_type == 'luminosity':
+                        o[l_type] += Mass * T * 10**self.grid[l][l_type][ia, iZ] # erg/s
+                    else:
+                        o[l_type] += Mass * T * self.grid[l][l_type][ia, iZ] # erg/s
+
+        if fesc:
+            for l_type in l_types: o[l_type] *= 1-fesc
 
 
-
-        total_continuum = (o['continuum']/float(len(line)))*(3E8)/((lam/float(len(line)))**2*1E-10)
+        total_continuum = (o['total_continuum']/float(len(line)))*(3E8)/((lam/float(len(line)))**2*1E-10)
 
         o['EW'] = o['luminosity']/total_continuum
 
