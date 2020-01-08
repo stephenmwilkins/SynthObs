@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 
 
 
-model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300') # DEFINE SED GRID - 
+model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300') # DEFINE SED GRID -
 model.dust = {'slope': -1.0} # define dust curve
 
 
@@ -32,7 +32,7 @@ test = SynthObs.test_data() # --- read in some test data
 
 z = 8.
 
-F = FLARE.filters.add_filters(FLARE.filters.NIRCam_W, new_lam = model.lam * (1. + z)) 
+F = FLARE.filters.add_filters(FLARE.filters.NIRCam_W, new_lam = model.lam * (1. + z))
 
 cosmo = FLARE.default_cosmo()
 
@@ -44,22 +44,4 @@ test.tauVs = (10**A) * test.MetSurfaceDensities # --- calculate V-band (550nm) o
 Fnu = models.generate_Fnu(model, test.Masses, test.Ages, test.Metallicities, test.tauVs, F, fesc = 0.0) # --- calculate rest-frame flux of each object in nJy
 
 for f in F['filters']:
-    print(f, Fnu[f]) 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    print(f'{f} {Fnu[f]:.2f}')
