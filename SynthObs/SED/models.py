@@ -220,11 +220,11 @@ class generate_SED():
 
 class EmissionLines():
 
-    def __init__(self, SPSIMF, dust = False, verbose = True):
+    def __init__(self, SPSIMF, dust = False, verbose = True, path_to_SPS_grid = f'{FLARE_dir}/data/SPS/nebular/2.0/', cloudy_grid = 'Z_refQ_wdust'):
 
         self.SPSIMF = SPSIMF
 
-        self.grid = pickle.load(open(FLARE_dir + f'/data/SPS/nebular/2.0/Z_refQ_wdust/{SPSIMF}/lines.p','rb'), encoding='latin1')  # --- open grid
+        self.grid = pickle.load(open(f'{path_to_SPS_grid}/{cloudy_grid}/{SPSIMF}/lines.p','rb'), encoding='latin1')  # --- open grid
 
         self.lines = self.grid['lines']
 
