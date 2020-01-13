@@ -37,6 +37,20 @@ model.create_Lnu_grid(F) # --- create new L grid for each filter. In units of er
 
 
 
+# --- Pure stellar
+test.tauVs = np.zeros(test.Masses.shape)
+Lnu = models.generate_Lnu(model, test.Masses, test.Ages, test.Metallicities, test.tauVs, F, fesc = 1.0) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
+for f in F['filters']:
+    print(f, Lnu[f])
+
+# --- Just BC
+test.tauVs = np.zeros(test.Masses.shape)
+Lnu = models.generate_Lnu(model, test.Masses, test.Ages, test.Metallicities, F, test.tauVs, fesc = 0.0) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
+for f in F['filters']:
+    print(f, Lnu[f])
+
+
+# --- TOTAL
 A = 5.2
 test.tauVs = (10**A) * test.MetSurfaceDensities # --- calculate V-band (550nm) optical depth for each star particle
 Lnu = models.generate_Lnu(model, test.Masses, test.Ages, test.Metallicities, test.tauVs, F, fesc = 0.0) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
