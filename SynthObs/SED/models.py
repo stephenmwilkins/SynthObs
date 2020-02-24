@@ -15,7 +15,7 @@ from FLARE.SED import IGM
 
 class define_model():
 
-    def __init__(self, grid, path_to_SPS_grid = FLARE_dir + '/data/SPS/nebular/2.0/Z_refQ_wdust/', dust = False):
+    def __init__(self, grid, path_to_SPS_grid = FLARE_dir + '/data/SPS/nebular/3.0/', dust = False):
 
         self.grid = pickle.load(open(path_to_SPS_grid + grid + '/nebular.p','rb'), encoding='latin1')
 
@@ -23,11 +23,11 @@ class define_model():
 
         self.dust = dust
 
-        # --- add backwards grid compatibility
-
         if 'stellar_incident' not in self.grid:
-            print('WARNING: you are using old grids!')
+
+            # --- this is now the canonical way of doing things
             self.grid['stellar_transmitted'] = self.grid['stellar']
+            self.grid['stellar_transmitted'][:,:,self.lam<912] = 0.0
             self.grid['stellar_incident'] = self.grid['stellar']
 
 
@@ -36,8 +36,6 @@ class define_model():
         self.Lnu = {}
 
         for f in F['filters']:
-
-            # self.Lnu[f] = np.trapz(np.multiply(self.grid['nebular'] + self.grid['stellar'], F[f].T), x = F[f].lam, axis = 2)/np.trapz(F[f].T, x = F[f].lam)
 
             self.Lnu[f] = empty()
 
@@ -220,13 +218,16 @@ class generate_SED():
 
 class EmissionLines():
 
-    def __init__(self, SPSIMF, dust = False, verbose = True, path_to_SPS_grid = f'{FLARE_dir}/data/SPS/nebular/2.0/', cloudy_grid = 'Z_refQ_wdust'):
+    def __init__(self, SPSIMF, dust = False, verbose = True, path_to_SPS_grid = f'{FLARE_dir}/data/SPS/nebular/3.0/'):
 
         self.SPSIMF = SPSIMF
 
-        self.grid = pickle.load(open(f'{path_to_SPS_grid}/{cloudy_grid}/{SPSIMF}/lines.p','rb'), encoding='latin1')  # --- open grid
+        self.grid = pickle.load(open(f'{path_to_SPS_grid}/{SPSIMF}/lines.p','rb'), encoding='latin1')  # --- open grid
+
+        print(self.grid['HI3750'].keys())
 
         self.lines = self.grid['lines']
+
 
         self.lam = {l: self.grid[l]['lam'] for l in self.lines}
 
@@ -238,6 +239,13 @@ class EmissionLines():
 
         self.dust = dust
         self.units = {'luminosity': 'erg/s', 'nebular_continuum': 'erg/s/Hz', 'stellar_incident_continuum': 'erg/s/Hz', 'stellar_transmitted_continuum': 'erg/s/Hz', 'continuum': 'erg/s/Hz', 'EW': 'AA'}
+
+        if 'stellar_transmitted_continuum' not in self.grid[self.lines[0]]:
+            # --- this is now the canonical way of doing things
+            for l in self.lines:
+                self.grid[l]['stellar_transmitted_continuum'] = self.grid[l]['stellar_continuum']
+                self.grid[l]['stellar_incident_continuum'] = self.grid[l]['stellar_continuum']
+
 
 
     def get_line_luminosities(self, lines, Masses, Ages, Metallicities, tauVs = False, fesc = 0.0, log10t_BC = 7., verbose = False):
