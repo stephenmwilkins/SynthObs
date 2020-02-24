@@ -17,7 +17,8 @@ import FLARE
 
 # --- initialise model with SPS model and IMF. Set verbose = True to see a list of available lines.
 
-m = models.EmissionLines('BPASSv2.2.1.binary/ModSalpeter_300', verbose = False)
+# m = models.EmissionLines('BPASSv2.2.1.binary/ModSalpeter_300', verbose = False)
+m = models.EmissionLines('BPASSv2.2.1.binary/ModSalpeter_300', verbose = False, path_to_SPS_grid = f'{FLARE.FLARE_dir}/data/SPS/nebular/2.0/Z_refQ_wdust/')
 
 
 # --- read in test data based on BLUETIDES
@@ -57,4 +58,4 @@ o = m.get_line_luminosity('HI6563', test.Masses, test.Ages, test.Metallicities, 
 
 o = m.get_line_luminosities(['HI6563','OII3726,OII3729'], test.Masses, test.Ages, test.Metallicities, tauVs = test.tauVs, verbose = True)
 
-print(o)
+# print(o)

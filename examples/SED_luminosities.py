@@ -18,7 +18,8 @@ import matplotlib.pyplot as plt
 "This is an more efficient way of calculating the broadband luminosities of galaxies. It produces the same answer as generate_SED within ~0.05 dex"
 
 
-model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300') # DEFINE SED GRID -
+model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300', path_to_SPS_grid = FLARE.FLARE_dir + '/data/SPS/nebular/3.0/') # DEFINE SED GRID -
+# model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300', path_to_SPS_grid = FLARE.FLARE_dir + '/data/SPS/nebular/2.0/Z_refQ_wdust/') # DEFINE SED GRID -
 model.dust = {'slope': -1.0} # define dust curve
 
 
@@ -37,18 +38,24 @@ model.create_Lnu_grid(F) # --- create new L grid for each filter. In units of er
 
 
 
+print('--- Pure stellar luminosities')
+
 # --- Pure stellar
 test.tauVs = np.zeros(test.Masses.shape)
 Lnu = models.generate_Lnu(model, test.Masses, test.Ages, test.Metallicities, test.tauVs, F, fesc = 1.0) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
 for f in F['filters']:
     print(f, Lnu[f])
 
+print('--- With just HII region')
+
 # --- Just BC
 test.tauVs = np.zeros(test.Masses.shape)
-Lnu = models.generate_Lnu(model, test.Masses, test.Ages, test.Metallicities, F, test.tauVs, fesc = 0.0) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
+Lnu = models.generate_Lnu(model, test.Masses, test.Ages, test.Metallicities, test.tauVs, F,  fesc = 0.0) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
 for f in F['filters']:
     print(f, Lnu[f])
 
+
+print('--- With ISM dust')
 
 # --- TOTAL
 A = 5.2
