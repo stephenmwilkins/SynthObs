@@ -7,7 +7,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import synthobs
-from synthobs.SED import models
+from synthobs.sed import models
 
 import flare
 import flare.filters

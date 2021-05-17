@@ -44,7 +44,7 @@ if do_test:
 
     width_arcsec = 3.
 
-    f = 'JWST.NIRCAM.F150W'
+    f = 'Webb.NIRCam.F150W'
 
     F = flare.filters.add_filters([f], new_lam = model.lam * (1.+z))
 
@@ -52,7 +52,9 @@ if do_test:
 
     model.create_Fnu_grid(F, z, cosmo)
 
-    Fnu = models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallicities, test.tauVs, F, f, fesc = 0.0)
+    tauVs_BC = np.zeros(len(test.tauVs))
+
+    Fnu = models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallicities, test.tauVs, tauVs_BC, F, f, fesc = 0.0)
 
     imgs = synthobs.morph.images.observed(f, cosmo, z, width_arcsec, smoothing = ('adaptive', 8.), verbose = True, PSF = PSF, super_sampling = 2).particle(test.X, test.Y, Fnu)
 
@@ -78,7 +80,7 @@ if do_comparison:
 
 
 
-    for filters, width_arcsec, name in zip([['Euclid.NISP.H', 'HST.WFC3.f160w', 'JWST.NIRCAM.F150W'],['Spitzer.IRAC.ch1', 'JWST.NIRCAM.F356W']], [5., 10.], ['H', '3.6']):
+    for filters, width_arcsec, name in zip([['Euclid.NISP.H', 'Hubble.WFC3.f160w', 'Webb.NIRCam.F150W'],['Spitzer.IRAC.ch1', 'Webb.NIRCam.F356W']], [5., 10.], ['H', '3.6']):
 
         F = flare.filters.add_filters(filters, new_lam = model.lam * (1.+z))
 
@@ -86,7 +88,9 @@ if do_comparison:
 
         model.create_Fnu_grid(F, z, cosmo)
 
-        Fnu = {f: models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallicities, test.tauVs, F, f, fesc = 0.0) for f in filters} # arrays of star particle fluxes in nJy
+        tauVs_BC = np.zeros(len(test.tauVs))
+
+        Fnu = {f: models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallicities, test.tauVs, tauVs_BC, F, f, fesc = 0.0) for f in filters} # arrays of star particle fluxes in nJy
 
         imgs = synthobs.morph.images.particle(test.X, test.Y, Fnu, filters, cosmo, z, width_arcsec, smoothing = ('adaptive', 8.), verbose = True, PSFs = PSFs, super_sampling = 2)
 
@@ -141,7 +145,8 @@ if do_filter_sets:
 
         model.create_Fnu_grid(F, z, cosmo)
 
-        Fnu = {f: models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallicities, test.tauVs, F, f) for f in filters} # arrays of star particle fluxes in nJy
+        tauVs_BC = np.zeros(len(test.tauVs))
+        Fnu = {f: models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallicities, test.tauVs, tauVs_BC, F, f) for f in filters} # arrays of star particle fluxes in nJy
 
         imgs = synthobs.morph.images.particle(test.X, test.Y, Fnu, filters, cosmo, z, width_arcsec, smoothing = ('adaptive', 8.), verbose = False, PSFs = PSFs, super_sampling = 2)
 

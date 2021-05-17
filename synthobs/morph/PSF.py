@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 
 from ..core import *
 import flare.filters
+import flare.observatories
 
 from astropy.convolution import convolve, convolve_fft, Gaussian2DKernel
 
@@ -25,7 +26,9 @@ def PSFs(filters, **kwargs):
 def PSF(f, **kwargs):
 
     if f.split('.')[0] == 'HST': psf = HubblePSF(f, **kwargs)
+    if f.split('.')[0] == 'Hubble': psf = HubblePSF(f, **kwargs)
     if f.split('.')[0] == 'JWST': psf = WebbPSF(f, **kwargs)
+    if f.split('.')[0] == 'Webb': psf = WebbPSF(f, **kwargs)
     if f.split('.')[0] == 'Euclid': psf = EuclidPSF(f, **kwargs)
     if f.split('.')[0] == 'Spitzer': psf = SpitzerPSF(f, **kwargs)
 
@@ -93,7 +96,7 @@ class HubblePSF():
 
         self.ndim = self.data.shape[0]
 
-        self.width = self.ndim*flare.filters.pixel_scale[f]/sub # "
+        self.width = self.ndim*flare.observatories.filter_info[f]['pixel_scale']/sub # "
 
         if verbose: print('ndim: {0}'.format(self.ndim))
 

@@ -44,8 +44,10 @@ test = synthobs.test_data() # --- read in some test data
 # --- calculate V-band (550nm) optical depth for each star particle
 A = 5.1
 test.tauVs = (10**A) * test.MetSurfaceDensities
-L = {f: models.generate_Lnu_array(model, test.Masses, test.Ages, test.Metallicities, test.tauVs, F, f, fesc = 1.0) for f in filters}
-L.update({'intrinsic_'+f: models.generate_Lnu_array(intrinsic_model, test.Masses, test.Ages, test.Metallicities, test.tauVs, F, f, fesc = 1.0) for f in filters})
+test.tauVs_BC = np.zeros(len(test.tauVs))
+
+L = {f: models.generate_Lnu_array(model, test.Masses, test.Ages, test.Metallicities, test.tauVs, test.tauVs_BC, F, f, fesc = 1.0) for f in filters}
+L.update({'intrinsic_'+f: models.generate_Lnu_array(intrinsic_model, test.Masses, test.Ages, test.Metallicities, test.tauVs, test.tauVs_BC, F, f, fesc = 1.0) for f in filters})
 
 
 

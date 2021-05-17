@@ -8,7 +8,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import flare
-import flare.filters
+import flare.observatories
 import synthobs
 import synthobs.morph.PSF
 
@@ -20,7 +20,7 @@ logged = True
 base_width = 10. # "
 sampling = 10
 
-filters = ['Euclid.NISP.H', 'HST.WFC3.f160w', 'JWST.NIRCAM.F150W'] #
+filters = ['Euclid.NISP.H', 'Hubble.WFC3.f160w', 'Webb.NIRCam.F150W'] #
 
 # filters = ['Spitzer.IRAC.ch1', 'JWST.NIRCAM.F356W'] #
 
@@ -45,9 +45,9 @@ if make_profile:
 for i, f in enumerate(filters):
 
     print('-'*10, f)
-    print('native pixel scale: {0}/"'.format(flare.filters.pixel_scale[f]))
+    print('native pixel scale: {0}/"'.format(flare.observatories.filter_info[f]['pixel_scale']))
 
-    width_pix_sampled = base_width // (flare.filters.pixel_scale[f] / sampling) # width of sampled pixels -> want to be odd
+    width_pix_sampled = base_width // (flare.observatories.filter_info[f]['pixel_scale'] / sampling) # width of sampled pixels -> want to be odd
 
     if width_pix_sampled % 2 == 0: width_pix_sampled -= 1
 
@@ -91,7 +91,7 @@ for i, f in enumerate(filters):
         centre = (Ndim//2, Ndim//2)
 
         radii_pix = np.arange(1, 500., 1)
-        radii_arcsec = radii_pix * (flare.filters.pixel_scale[f] / sampling)
+        radii_arcsec = radii_pix * (flare.observatories.filter_info[f]['pixel_scale'] / sampling)
 
         apertures = [CircularAperture(centre, r=r) for r in radii_pix] #r in pixels
 
@@ -110,11 +110,11 @@ for i, f in enumerate(filters):
 
 
 
-fig.savefig('f/morph_PSF_2D.pdf')
+fig.savefig('figs/morph_PSF_2D.pdf')
 fig.clf()
 
 
 if make_profile:
     fig_profile.legend()
-    fig_profile.savefig('f/morph_PSF_COG.pdf')
+    fig_profile.savefig('figs/morph_PSF_COG.pdf')
     fig_profile.clf()

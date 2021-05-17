@@ -10,6 +10,7 @@ from astropy.io import fits
 from ..core import *
 
 import flare.filters
+import flare.observatories
 
 class empty(): pass
 
@@ -121,7 +122,7 @@ class observed():
         self.verbose = verbose
         self.super_sampling = super_sampling
 
-        self.native_pixel_scale = flare.filters.pixel_scale[self.filter]
+        self.native_pixel_scale = flare.observatories.filter_info[self.filter]['pixel_scale']
 
         if self.resampling_factor:
             self.pixel_scale = self.native_pixel_scale / self.resampling_factor # the actual resolution
@@ -269,14 +270,14 @@ def particle(X, Y, L, filters, cosmo, z, target_width_arcsec, resampling_factor=
 
     # --- determine coarsest pixels
 
-    max_pixel_scale = np.max([flare.filters.pixel_scale[filter] for filter in filters])
+    max_pixel_scale = np.max([flare.observatories.filter_info[filter]['pixel_scale'] for filter in filters])
 
     IMGs = {}
 
     for filter in filters:
 
-        xoffset_pix = xoffset_pix_base * (max_pixel_scale/flare.filters.pixel_scale[filter])
-        yoffset_pix = yoffset_pix_base * (max_pixel_scale/flare.filters.pixel_scale[filter])
+        xoffset_pix = xoffset_pix_base * (max_pixel_scale/flare.observatories.filter_info[filter]['pixel_scale'])
+        yoffset_pix = yoffset_pix_base * (max_pixel_scale/flare.observatories.filter_info[filter]['pixel_scale'])
 
         imgs = observed(filter, cosmo, z, target_width_arcsec, resampling_factor = resampling_factor, pixel_scale = pixel_scale, smoothing = smoothing, PSF = PSFs[filter], super_sampling = super_sampling, verbose = verbose, xoffset_pix = xoffset_pix, yoffset_pix = xoffset_pix).particle(X, Y, L[filter])
 
