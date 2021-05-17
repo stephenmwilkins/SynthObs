@@ -6,11 +6,11 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-import SynthObs
-from SynthObs.SED import models
+import synthobs
+from synthobs.SED import models
 
-import FLARE
-import FLARE.filters
+import flare
+import flare.filters
 
 import matplotlib.pyplot as plt
 
@@ -26,16 +26,16 @@ model.dust_ISM = ('simple', {'slope': -1.0}) # define dust curve
 
 # --- read in test data
 
-test = SynthObs.test_data() # --- read in some test data
+test = synthobs.test_data() # --- read in some test data
 
 
 # --- create observed frame fluxes
 
 z = 8.
 
-F = FLARE.filters.add_filters(FLARE.filters.NIRCam_W, new_lam = model.lam * (1. + z))
+F = flare.filters.add_filters(flare.filters.NIRCam_W, new_lam = model.lam * (1. + z))
 
-cosmo = FLARE.default_cosmo()
+cosmo = flare.default_cosmo()
 
 model.create_Fnu_grid(F, z, cosmo) # --- create new Fnu grid for each filter. In units of nJy/M_sol
 

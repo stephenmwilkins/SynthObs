@@ -6,10 +6,10 @@ import sys
 import os
 
 
-import SynthObs
-from SynthObs.SED import models
+import synthobs
+from synthobs.sed import models
 
-import FLARE
+import flare
 
 
 
@@ -23,7 +23,7 @@ m = models.EmissionLines('BPASSv2.2.1.binary/ModSalpeter_300', verbose = False)
 
 # --- read in test data based on BLUETIDES
 
-test = SynthObs.test_data()
+test = synthobs.test_data()
 
 # UNITS:
 # masses = star particle mass in M_sol

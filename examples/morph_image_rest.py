@@ -8,11 +8,11 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
-import FLARE.filters
-import SynthObs
-import SynthObs.Morph.images as images
-from SynthObs.SED import models
-from SynthObs.Morph import measure
+import flare.filters
+import synthobs
+import synthobs.morph.images as images
+from synthobs.sed import models
+from synthobs.morph import measure
 
 
 
@@ -31,15 +31,15 @@ intrinsic_model.dust = False # DEFINE DUST MODEL - these are the calibrated z=8 
 
 
 
-filters = FLARE.filters.TH
+filters = flare.filters.TH
 
-F = FLARE.filters.add_filters(filters, new_lam = model.lam)
+F = flare.filters.add_filters(filters, new_lam = model.lam)
 
 
 model.create_Lnu_grid(F)
 intrinsic_model.create_Lnu_grid(F)
 
-test = SynthObs.test_data() # --- read in some test data
+test = synthobs.test_data() # --- read in some test data
 
 # --- calculate V-band (550nm) optical depth for each star particle
 A = 5.1

@@ -6,11 +6,11 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-import SynthObs
-from SynthObs.SED import models
+import synthobs
+from synthobs.sed import models
 
-import FLARE
-import FLARE.filters
+import flare
+import flare.filters
 
 import matplotlib.pyplot as plt
 
@@ -18,21 +18,21 @@ import matplotlib.pyplot as plt
 "This is an more efficient way of calculating the broadband luminosities of galaxies. It produces the same answer as generate_SED within ~0.05 dex"
 
 
-model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300', path_to_SPS_grid = FLARE.FLARE_dir + '/data/SPS/nebular/3.0/') # DEFINE SED GRID -
-# model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300', path_to_SPS_grid = FLARE.FLARE_dir + '/data/SPS/nebular/2.0/Z_refQ_wdust/') # DEFINE SED GRID -
+model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300', path_to_SPS_grid = flare.FLARE_dir + '/data/SPS/nebular/3.0/') # DEFINE SED GRID -
+# model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300', path_to_SPS_grid = flare.FLARE_dir + '/data/SPS/nebular/2.0/Z_refQ_wdust/') # DEFINE SED GRID -
 model.dust_ISM = ('simple', {'slope': -1.0})
 model.dust_BC = ('simple', {'slope': -1.0})
 
 # --- read in test data
 
-test = SynthObs.test_data() # --- read in some test data
+test = synthobs.test_data() # --- read in some test data
 
 
 # --- create rest-frame luminosities
 
 filters = ['FAKE.TH.'+f for f in ['FUV','NUV','V']] # --- define the filters. FAKE.FAKE are just top-hat filters using for extracting rest-frame quantities.
 
-F = FLARE.filters.add_filters(filters, new_lam = model.lam)
+F = flare.filters.add_filters(filters, new_lam = model.lam)
 
 model.create_Lnu_grid(F) # --- create new L grid for each filter. In units of erg/s/Hz
 

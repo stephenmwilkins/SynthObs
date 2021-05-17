@@ -6,11 +6,11 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-import SynthObs
-from SynthObs.SED import models
+import synthobs
+from synthobs.sed import models
 
-import FLARE
-import FLARE.filters
+import flare
+import flare.filters
 
 
 import matplotlib.pyplot as plt
@@ -31,7 +31,7 @@ fesc = 0.0
 
 # --- read in test data
 
-test = SynthObs.test_data() # --- read in some test data
+test = synthobs.test_data() # --- read in some test data
 
 # --- ISM dust optical depth
 A = 5.2
@@ -48,7 +48,7 @@ o = models.generate_SED(model, test.Masses, test.Ages, test.Metallicities, tauVs
 
 filters = ['FAKE.TH.'+f for f in ['FUV','NUV','V']] # --- define the filters. FAKE.FAKE are just top-hat filters using for extracting rest-frame quantities.
 
-F = FLARE.filters.add_filters(filters, new_lam = model.lam)
+F = flare.filters.add_filters(filters, new_lam = model.lam)
 
 
 
@@ -96,7 +96,7 @@ plt.show()
 print()
 print()
 
-cosmo = FLARE.default_cosmo()
+cosmo = flare.default_cosmo()
 
 z = 8.
 
@@ -105,9 +105,9 @@ o.total.get_fnu(cosmo, z) # generates lamz and fnu
 plt.plot(np.log10(o.total.lamz), o.total.fnu, label = 'total', lw=1, zorder = 1)
 
 
-filters = FLARE.filters.NIRCam_W
+filters = flare.filters.NIRCam_W
 
-F = FLARE.filters.add_filters(filters, new_lam = o.model.lam * (1. + z)) # --- NOTE: need to give it the redshifted
+F = flare.filters.add_filters(filters, new_lam = o.model.lam * (1. + z)) # --- NOTE: need to give it the redshifted
 
 o.total.get_Fnu(F) # generates Fnu (broad band fluxes)
 

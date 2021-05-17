@@ -6,12 +6,12 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-import SynthObs
-from SynthObs.SED import models
+import synthobs
+from synthobs.sed import models
 
-import FLARE
-import FLARE.filters
-from FLARE.SED import dust_curves
+import flare
+import flare.filters
+from interrogator.sed import dust_curves
 
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -19,7 +19,7 @@ import matplotlib.cm as cm
 
 
 # --- read in test data
-test = SynthObs.test_data() # --- read in some test data
+test = synthobs.test_data() # --- read in some test data
 model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300') # DEFINE SED GRID -
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------

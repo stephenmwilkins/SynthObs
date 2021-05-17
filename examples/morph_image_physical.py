@@ -7,8 +7,8 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-import SynthObs
-import SynthObs.Morph.images
+import synthobs
+import synthobs.morph.images
 
 
 savefile = False
@@ -21,7 +21,7 @@ ndim = 50
 
 
 
-test = SynthObs.test_data() # --- read in some test data
+test = synthobs.test_data() # --- read in some test data
 
 
 
@@ -33,10 +33,10 @@ for smoothing in [False, ('convolved_gaussian', 0.2), ('adaptive', 16)]:
 
     imgs = {}
 
-    imgs['mass'] = SynthObs.Morph.images.core(test.X, test.Y, test.Masses, resolution = resolution, ndim = ndim, smoothing = smoothing, verbose = True)
+    imgs['mass'] = synthobs.morph.images.core(test.X, test.Y, test.Masses, resolution = resolution, ndim = ndim, smoothing = smoothing, verbose = True)
 
     s = test.Ages<10.
-    imgs['sfr'] = SynthObs.Morph.images.core(test.X[s], test.Y[s], test.Masses[s], resolution = resolution, ndim = ndim, smoothing = smoothing, verbose = True)
+    imgs['sfr'] = synthobs.morph.images.core(test.X[s], test.Y[s], test.Masses[s], resolution = resolution, ndim = ndim, smoothing = smoothing, verbose = True)
 
     N = len(imgs.keys())
     fig, axes = plt.subplots(1, N, figsize = (N*2., 2))

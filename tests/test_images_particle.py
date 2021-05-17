@@ -7,31 +7,31 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-import FLARE
-import FLARE.filters
-import SynthObs
-from SynthObs.SED import models
+import flare
+import flare.filters
+import synthobs
+from synthobs.sed import models
 
-import SynthObs.Morph.images
-import SynthObs.Morph.PSF 
+import synthobs.morph.images
+import synthobs.morph.PSF
 
 
 z = 8.
 h = 0.697
-cosmo = FLARE.default_cosmo()
-model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300') # DEFINE SED GRID - 
+cosmo = flare.default_cosmo()
+model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300') # DEFINE sed GRID -
 model.dust = {'A': 5.2, 'slope': -1.0} # DEFINE DUST MODEL - these are the calibrated z=8 values for the dust model
 
 
 
-f = 'JWST.NIRCAM.F150W'
-f = 'HST.WFC3.f160w'
-F = FLARE.filters.add_filters([f], new_lam = model.lam * (1.+z)) 
+f = 'Webb.NIRCAM.F150W'
+f = 'Hubble.WFC3.f160w'
+F = flare.filters.add_filters([f], new_lam = model.lam * (1.+z))
 model.create_Fnu_grid(F, z, cosmo)
-PSF = SynthObs.Morph.PSF.PSF(f) # creates a dictionary of instances of the webbPSF class
+PSF = synthobs.morph.PSF.PSF(f) # creates a dictionary of instances of the webbPSF class
 
-test = SynthObs.test_data() # --- read in some test data
-L = models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, F, f) 
+test = synthobs.test_data() # --- read in some test data
+L = models.generate_Fnu_array(model, test.Masses, test.Ages, test.Metallicities, test.MetSurfaceDensities, F, f)
 
 
 do_test1 = True
@@ -43,8 +43,8 @@ if do_test1:
     # pixel_scale = 0.06 # "
     # smoothing = ('convolved_gaussian', (1.5/h)/(1.+z))
     smoothing = ('adaptive', 8.)
-    
-    imgs = SynthObs.Morph.images.observed(f, cosmo, z, width_arcsec, smoothing = smoothing, verbose = True, PSF = PSF).particle(test.X, test.Y, L)
+
+    imgs = synthobs.morph.images.observed(f, cosmo, z, width_arcsec, smoothing = smoothing, verbose = True, PSF = PSF).particle(test.X, test.Y, L)
 
 
 
@@ -59,17 +59,8 @@ if do_test1:
     axes[4].imshow(imgs.img.no_PSF, interpolation = 'nearest')
     axes[5].imshow(imgs.img.data, interpolation = 'nearest')
 
-    for ax in axes:    
+    for ax in axes:
         ax.get_xaxis().set_ticks([])
         ax.get_yaxis().set_ticks([])
 
     plt.show()
-    
-
-
-
-
-
-
-
-

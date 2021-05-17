@@ -9,7 +9,7 @@ from astropy.io import fits
 
 from ..core import *
 
-import FLARE.filters
+import flare.filters
 
 class empty(): pass
 
@@ -121,7 +121,7 @@ class observed():
         self.verbose = verbose
         self.super_sampling = super_sampling
 
-        self.native_pixel_scale = FLARE.filters.pixel_scale[self.filter]
+        self.native_pixel_scale = flare.filters.pixel_scale[self.filter]
 
         if self.resampling_factor:
             self.pixel_scale = self.native_pixel_scale / self.resampling_factor # the actual resolution
@@ -269,14 +269,14 @@ def particle(X, Y, L, filters, cosmo, z, target_width_arcsec, resampling_factor=
 
     # --- determine coarsest pixels
 
-    max_pixel_scale = np.max([FLARE.filters.pixel_scale[filter] for filter in filters])
+    max_pixel_scale = np.max([flare.filters.pixel_scale[filter] for filter in filters])
 
     IMGs = {}
 
     for filter in filters:
 
-        xoffset_pix = xoffset_pix_base * (max_pixel_scale/FLARE.filters.pixel_scale[filter])
-        yoffset_pix = yoffset_pix_base * (max_pixel_scale/FLARE.filters.pixel_scale[filter])
+        xoffset_pix = xoffset_pix_base * (max_pixel_scale/flare.filters.pixel_scale[filter])
+        yoffset_pix = yoffset_pix_base * (max_pixel_scale/flare.filters.pixel_scale[filter])
 
         imgs = observed(filter, cosmo, z, target_width_arcsec, resampling_factor = resampling_factor, pixel_scale = pixel_scale, smoothing = smoothing, PSF = PSFs[filter], super_sampling = super_sampling, verbose = verbose, xoffset_pix = xoffset_pix, yoffset_pix = xoffset_pix).particle(X, Y, L[filter])
 
@@ -296,14 +296,14 @@ def Sersic(L, p, filters, cosmo, z, target_width_arcsec, resampling_factor=False
 
     # --- determine coarsest pixels
 
-    max_pixel_scale = np.max([FLARE.filters.pixel_scale[filter] for filter in filters])
+    max_pixel_scale = np.max([flare.filters.pixel_scale[filter] for filter in filters])
 
     IMGs = {}
 
     for filter in filters:
 
-        xoffset_pix = xoffset_pix_base * (max_pixel_scale/FLARE.filters.pixel_scale[filter])
-        yoffset_pix = yoffset_pix_base * (max_pixel_scale/FLARE.filters.pixel_scale[filter])
+        xoffset_pix = xoffset_pix_base * (max_pixel_scale/flare.filters.pixel_scale[filter])
+        yoffset_pix = yoffset_pix_base * (max_pixel_scale/flare.filters.pixel_scale[filter])
 
         imgs = observed(filter, cosmo, z, target_width_arcsec, resampling_factor = resampling_factor, pixel_scale = pixel_scale, smoothing = smoothing, PSF = PSFs[filter], super_sampling = super_sampling, verbose = verbose, xoffset_pix = xoffset_pix, yoffset_pix = xoffset_pix).Sersic(L[filter], p)
 
@@ -319,7 +319,7 @@ def Sersic(L, p, filters, cosmo, z, target_width_arcsec, resampling_factor=False
 def point(flux, filter, target_width_arcsec, resampling_factor = False, pixel_scale = False, PSF = False, verbose = False, super_sampling = 5, xoffset_pix = 0.0, yoffset_pix = 0.0):
 
 
-    native_pixel_scale = FLARE.filters.pixel_scale[filter]
+    native_pixel_scale = flare.filters.pixel_scale[filter]
 
     if resampling_factor:
         pixel_scale = native_pixel_scale / resampling_factor # the actual resolution

@@ -8,9 +8,9 @@ class empty(): pass
 
 from ..core import *
 
-from FLARE.SED import core
-from FLARE.SED import IGM
-from FLARE.SED import dust_curves
+from interrogator.sed import core
+from interrogator.sed import IGM
+from interrogator.sed import dust_curves
 
 # from scipy import ndimage # -- used for interpolation
 
