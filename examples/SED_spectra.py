@@ -27,7 +27,7 @@ model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300') # DEFINE SED G
 model.dust_BC = ('simple', {'slope': -1.0}) # define dust curve
 model.dust_ISM = ('simple', {'slope': -1.0}) # define dust curve
 
-fesc = 0.0
+
 
 # --- read in test data
 
@@ -63,18 +63,18 @@ plt.plot(np.log10(o.lam), np.log10(o.BC.lnu), label = 'only BC', c='g', alpha=0.
 plt.plot(np.log10(o.lam), np.log10(o.total.lnu), label = 'total', c='0.5', lw=1, zorder = 2)
 
 
-
-for sed in [o.stellar, o.intrinsic, o.BC, o.no_HII_no_BC, o.total]:
-
-    print(f'--- {sed.description}')
-
-    sed.get_Lnu(F) # generates Lnu (broad band luminosities)
-
-    for f in filters:
-        print(f'{f} {np.log10(sed.Lnu[f]):.2f}')
-        if sed == o.total:
-            plt.scatter(np.log10(F[f].pivwv()), np.log10(sed.Lnu[f]), edgecolor = 'k', zorder = 3, label = f)
-
+#
+# for sed in [o.stellar, o.intrinsic, o.BC, o.no_HII_no_BC, o.total]:
+#
+#     print(f'--- {sed.description}')
+#
+#     sed.get_Lnu(F) # generates Lnu (broad band luminosities)
+#
+#     for f in filters:
+#         print(f'{f} {np.log10(sed.Lnu[f]):.2f}')
+#         if sed == o.total:
+#             plt.scatter(np.log10(F[f].pivwv()), np.log10(sed.Lnu[f]), edgecolor = 'k', zorder = 3, label = f)
+#
 
 
 

@@ -2,7 +2,7 @@
 
 import numpy as np
 import pickle
-
+import copy
 
 class empty(): pass
 
@@ -25,13 +25,15 @@ class define_model():
         self.dust_ISM = False
         self.dust_BC = False
 
+        print(list(self.grid.keys()))
 
         if 'stellar_incident' not in self.grid:
 
             # --- this is now the canonical way of doing things
-            self.grid['stellar_transmitted'] = self.grid['stellar']
+            self.grid['stellar_incident'] = copy.copy(self.grid['stellar'])
+            self.grid['stellar_transmitted'] = copy.copy(self.grid['stellar'])
             self.grid['stellar_transmitted'][:,:,self.lam<912] = 0.0
-            self.grid['stellar_incident'] = self.grid['stellar']
+
 
 
     def create_Lnu_grid(self, F):
