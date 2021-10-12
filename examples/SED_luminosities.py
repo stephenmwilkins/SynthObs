@@ -41,18 +41,15 @@ model.create_Lnu_grid(F) # --- create new L grid for each filter. In units of er
 print('--- Pure stellar luminosities')
 
 # --- Pure stellar
-test.tauVs_ISM = np.zeros(test.Masses.shape)
-test.tauVs_BC = np.zeros(test.Masses.shape)
-Lnu = models.generate_Lnu(model, test.Masses, test.Ages, test.Metallicities, test.tauVs_ISM, test.tauVs_BC, F, fesc = 1.0) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
+
+Lnu = models.generate_Lnu(model, F, test.Masses, test.Ages, test.Metallicities, fesc = 1.0) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
 for f in F['filters']:
     print(f'{f} {np.log10(Lnu[f]):.2f}')
 
 print('--- With just HII region')
 
 # --- Intrinsic (just stellar + HII)
-test.tauVs_ISM = np.zeros(test.Masses.shape)
-test.tauVs_BC = np.zeros(test.Masses.shape)
-Lnu = models.generate_Lnu(model, test.Masses, test.Ages, test.Metallicities,  test.tauVs_ISM, test.tauVs_BC, F,  fesc = 0.0) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
+Lnu = models.generate_Lnu(model, F, test.Masses, test.Ages, test.Metallicities,  fesc = 0.0) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
 for f in F['filters']:
     print(f'{f} {np.log10(Lnu[f]):.2f}')
 
@@ -60,9 +57,9 @@ for f in F['filters']:
 print('--- With just BC dust')
 
 # --- Intrinsic (just stellar + HII)
-test.tauVs_ISM = np.zeros(test.Masses.shape)
+
 test.tauVs_BC = 2.0 * (test.Metallicities/0.01)
-Lnu = models.generate_Lnu(model, test.Masses, test.Ages, test.Metallicities,  test.tauVs_ISM, test.tauVs_BC, F,  fesc = 0.0) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
+Lnu = models.generate_Lnu(model, F, test.Masses, test.Ages, test.Metallicities,  tauVs_BC = test.tauVs_BC,  fesc = 0.0) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
 for f in F['filters']:
     print(f'{f} {np.log10(Lnu[f]):.2f}')
 
@@ -71,7 +68,7 @@ print('--- Total')
 # --- TOTAL
 test.tauVs_ISM = (10**5.2) * test.MetSurfaceDensities
 test.tauVs_BC = 2.0 * (test.Metallicities/0.01)
-Lnu = models.generate_Lnu(model, test.Masses, test.Ages, test.Metallicities,  test.tauVs_ISM, test.tauVs_BC, F, fesc = 0.0) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
+Lnu = models.generate_Lnu(model, F, test.Masses, test.Ages, test.Metallicities,  tauVs_ISM = test.tauVs_ISM, tauVs_BC = test.tauVs_BC, fesc = 0.0) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
 
 for f in F['filters']:
     print(f'{f} {np.log10(Lnu[f]):.2f}')

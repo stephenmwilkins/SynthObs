@@ -18,7 +18,6 @@ import matplotlib.pyplot as plt
 
 # --- initialise SED grid ---
 #  this can take a long time do don't do it for every object
-
 model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300') # DEFINE SED GRID -
 
 # --- read in test data
@@ -33,9 +32,8 @@ print(f'log10Q (direct): {log10Q}')
 
 # --- calculate the full SEDs
 
-test.tauVs_ISM = np.zeros(test.Masses.shape)
-test.tauVs_BC = np.zeros(test.Masses.shape)
-o = models.generate_SED(model, test.Masses, test.Ages, test.Metallicities, tauVs_ISM = test.tauVs_ISM, tauVs_BC = test.tauVs_BC, fesc = 1.0)
+
+o = models.generate_SED(model, test.Masses, test.Ages, test.Metallicities, fesc = 1.0)
 
 log10Q_SED = o.stellar.return_log10Q()
 print(f'log10Q (SED): {log10Q_SED}')
@@ -53,9 +51,9 @@ model.create_Lnu_grid(F) # --- create new L grid for each filter. In units of er
 
 # --- Pure stellar
 
-Lnu = models.generate_Lnu(model, test.Masses, test.Ages, test.Metallicities, test.tauVs_ISM, test.tauVs_BC, F, fesc = 1.0)
+Lnu = models.generate_Lnu(model, F, test.Masses, test.Ages, test.Metallicities, fesc = 1.0)
 
 log10LFUV = np.log10(Lnu['FAKE.TH.FUV']) # erg/s/Hz
 
 print(f'log10LFUV: {log10LFUV}')
-print(f'ionising photon production efficiecy: {log10Q-log10LFUV}') # should be ~25. ISN'T!
+print(f'ionising photon production efficiecy: {log10Q-log10LFUV}') # should be ~25!

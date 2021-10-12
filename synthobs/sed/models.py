@@ -71,20 +71,26 @@ class define_model():
 
 
 
-def generate_Lnu(model, Masses, Ages, Metallicities, tauVs_ISM, tauVs_BC, F, fesc = 0.0, log10t_BC = 7.):
+def generate_Lnu(model, F, Masses, Ages, Metallicities, tauVs_ISM = False, tauVs_BC = False, fesc = 0.0, log10t_BC = 7.):
+
+    if not isinstance(tauVs_ISM, np.ndarray): tauVs_ISM = np.zeros(Masses.shape)
+    if not isinstance(tauVs_BC, np.ndarray): tauVs_BC = np.zeros(Masses.shape)
 
     L = {f: 0.0 for f in F['filters']}
 
     for f in F['filters']:
 
-        L[f] = np.sum(generate_Lnu_array(model, Masses, Ages, Metallicities, tauVs_ISM, tauVs_BC, F, f, fesc = fesc, log10t_BC = log10t_BC))
+        L[f] = np.sum(generate_Lnu_array(model, F, f, Masses, Ages, Metallicities, tauVs_ISM = tauVs_ISM, tauVs_BC = tauVs_BC, fesc = fesc, log10t_BC = log10t_BC))
 
     return L
 
 
-def generate_Lnu_array(model, Masses, Ages, Metallicities, tauVs_ISM, tauVs_BC, F, f, fesc = 0.0, log10t_BC = 7.):
+def generate_Lnu_array(model, F, f, Masses, Ages, Metallicities, tauVs_ISM = False, tauVs_BC = False,  fesc = 0.0, log10t_BC = 7.):
 
     # --- determine dust attenuation, this is somewhat problematic as it assumes the value of the dust curve in the middle of the band
+
+    if not isinstance(tauVs_ISM, np.ndarray): tauVs_ISM = np.zeros(Masses.shape)
+    if not isinstance(tauVs_BC, np.ndarray): tauVs_BC = np.zeros(Masses.shape)
 
     if model.dust_ISM:
         dust_model, dust_model_params = model.dust_ISM
@@ -130,18 +136,25 @@ def generate_Lnu_array(model, Masses, Ages, Metallicities, tauVs_ISM, tauVs_BC, 
 
 
 
-def generate_Fnu(model, Masses, Ages, Metallicities, tauVs_ISM, tauVs_BC, F, fesc = 0.0, log10t_BC = 7.):
+def generate_Fnu(model, F, Masses, Ages, Metallicities, tauVs_ISM = False, tauVs_BC = False, fesc = 0.0, log10t_BC = 7.):
+
+    if not isinstance(tauVs_ISM, np.ndarray): tauVs_ISM = np.zeros(Masses.shape)
+    if not isinstance(tauVs_BC, np.ndarray): tauVs_BC = np.zeros(Masses.shape)
 
     Fnu = {f: 0.0 for f in F['filters']}
 
     for f in F['filters']:
 
-        Fnu[f] = np.sum(generate_Fnu_array(model, Masses, Ages, Metallicities, tauVs_ISM, tauVs_BC, F, f, fesc = fesc, log10t_BC = log10t_BC))
+        Fnu[f] = np.sum(generate_Fnu_array(model, F, f, Masses, Ages, Metallicities, tauVs_ISM = tauVs_ISM, tauVs_BC = tauVs_BC, fesc = fesc, log10t_BC = log10t_BC))
 
     return Fnu
 
 
-def generate_Fnu_array(model, Masses, Ages, Metallicities, tauVs_ISM, tauVs_BC, F, f, fesc = 0.0, log10t_BC = 7.):
+def generate_Fnu_array(model, F, f, Masses, Ages, Metallicities, tauVs_ISM = False, tauVs_BC = False, fesc = 0.0, log10t_BC = 7.):
+
+
+    if not isinstance(tauVs_ISM, np.ndarray): tauVs_ISM = np.zeros(Masses.shape)
+    if not isinstance(tauVs_BC, np.ndarray): tauVs_BC = np.zeros(Masses.shape)
 
     # --- determine dust attenuation
 

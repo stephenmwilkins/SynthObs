@@ -1,5 +1,5 @@
 astropy
 numpy
 matplotlib
--e git://github.com/stephenmwilkins/FLARE.git#egg=FLARE
+-e git://github.com/stephenmwilkins/flare.git#egg=flare
 webbpsf

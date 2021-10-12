@@ -42,7 +42,7 @@ model.create_Fnu_grid(F, z, cosmo) # --- create new Fnu grid for each filter. In
 test.tauVs_ISM = (10**5.2) * test.MetSurfaceDensities
 test.tauVs_BC = 2.0 * (test.Metallicities/0.01)
 
-Fnu = models.generate_Fnu(model, test.Masses, test.Ages, test.Metallicities, test.tauVs_ISM, test.tauVs_BC, F, fesc = 0.0) # --- calculate rest-frame flux of each object in nJy
+Fnu = models.generate_Fnu(model, F, test.Masses, test.Ages, test.Metallicities, tauVs_ISM = test.tauVs_ISM, tauVs_BC = test.tauVs_BC, fesc = 0.0) # --- calculate rest-frame flux of each object in nJy
 
 for f in F['filters']:
     print(f'{f} {Fnu[f]:.2f}')
