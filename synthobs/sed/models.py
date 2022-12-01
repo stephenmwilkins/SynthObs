@@ -201,6 +201,23 @@ def generate_Fnu_array(model, F, f, Masses, Ages, Metallicities, tauVs_ISM = Fal
 
 
 
+def generate_particle_log10Q(model, Masses, Ages, Metallicities):
+
+    particle_Q = []
+
+    for Mass, Age, Metallicity in zip(Masses, Ages, Metallicities):
+
+        log10age = np.log10(Age) + 6. # log10(age/yr)
+        log10Z = np.log10(Metallicity) # log10(Z)
+
+        # --- determine closest SED grid point
+        ia = (np.abs(model.grid['log10age'] - log10age)).argmin()
+        iZ = (np.abs(model.grid['log10Z'] - log10Z)).argmin()
+
+        Q = Mass*10**(model.grid['log10Q'][ia, iZ])
+        particle_Q.append(Q)
+
+    return np.log10(particle_Q)
 
 
 def generate_log10Q(model, Masses, Ages, Metallicities):
